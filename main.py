@@ -29,7 +29,38 @@ def fetch_prices(vs_currency="usd", cryptos=None):
         print(f"Erreur API: {e}")
         return None
 
+def get_top_cryptos(limit=100, currency="usd"):
+    """جلب أعلى N عملة حسب Market Cap"""
+    url = "https://api.coingecko.com/api/v3/coins/markets"
+    params = {
+        "vs_currency": currency,
+        "order": "market_cap_desc",
+        "per_page": min(limit, 250),  # الحد الأقصى 250 لكل صفحة
+        "page": 1,
+        "price_change_percentage": "24h"
+    }
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        print(f"Erreur API top: {e}")
+        return None
 
+
+def search_crypto(query):
+    """البحث عن عملة بالاسم أو الرمز"""
+    url = "https://api.coingecko.com/api/v3/search"
+    params = {"query": query}
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("coins", [])[:10]  # أول 10 نتائج
+    except requests.RequestException as e:
+        print(f"Erreur search: {e}")
+        return None
+    
 def get_exchange_rate(target_currency="TND"):
     url = "https://api.exchangerate-api.com/v4/latest/USD"
     try:
@@ -182,47 +213,53 @@ def check_alerts(alerts_data, prices_data):
         print("\n✅ Aucune alerte declenchee")
 
 def main():
-    print(f"{Fore.CYAN}{Style.BRIGHT}CryptoGuard v0.6.0{Style.RESET_ALL}")
-    print("=" * 70)
+    import sys
+    
+    # Parse arguments
+    args = sys.argv[1:]
+    limit = 5  # default
+    search_query = None
+    
+    if "--top" in args:
+        idx = args.index("--top")
+        if idx + 1 < len(args):
+            limit = int(args[idx + 1])
+    
+    if "--search" in args:
+        idx = args.index("--search")
+        if idx + 1 < len(args):
+            search_query = args[idx + 1]
+    
+    # Header
+    print(f"{Fore.CYAN}{Style.BRIGHT}CryptoGuard v1.1.0{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{'=' * 70}{Style.RESET_ALL}")
     print(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 70)
-
-    watchlist = load_watchlist()
-    cryptos = watchlist["cryptos"]
-    currencies = watchlist["currencies"]
-
-    print(f"\nSurveillance de {len(cryptos)} cryptos: {', '.join(cryptos)}")
-    print(f"Devises: {', '.join(currencies).upper()}")
-
-    data_usd = fetch_prices("usd", cryptos)
-
-        # تحميل التنبيهات
-    alerts_data = load_alerts()
-
-    for curr in currencies:
-        print(f"\n{Fore.BLUE}{Style.BRIGHT}=== {curr.upper()} ==={Style.RESET_ALL}")
-        if curr == "usd":
-            if data_usd:
-                display_table(data_usd, "USD")
-        elif curr == "tnd":
-            taux = get_exchange_rate("TND")
-            if taux and data_usd:
-                data_tnd = [dict(coin) for coin in data_usd]
-                for coin in data_tnd:
-                    coin["current_price"] = coin["current_price"] * taux
-                    coin["market_cap"] = coin["market_cap"] * taux
-                display_table(data_tnd, "TND")
-                print(f"Taux: 1 USD = {taux:.4f} TND")
+    print(f"{Fore.CYAN}{'=' * 70}{Style.RESET_ALL}")
+    
+    # Search mode
+    if search_query:
+        print(f"\n{Fore.YELLOW}Recherche: '{search_query}'{Style.RESET_ALL}")
+        results = search_crypto(search_query)
+        if results:
+            for i, coin in enumerate(results, 1):
+                print(f"  {i}. {coin['name']} ({coin['symbol'].upper()}) - {coin['id']}")
         else:
-            data = fetch_prices(curr, cryptos)
-            if data:
-                display_table(data, curr.upper())
-     # فحص التنبيهات
-    print("\n" + "=" * 70)
-    print("🔔 Verification des alertes...")
-    check_alerts(alerts_data, data_usd)
-    print(f"\n{Fore.BLUE}{Style.BRIGHT}=== {curr.upper()} ==={Style.RESET_ALL}")
+            print("Aucun résultat")
+        return
+    
+    # Top mode
+    print(f"\n{Fore.YELLOW}Top {limit} cryptos (Market Cap){Style.RESET_ALL}")
+    data = get_top_cryptos(limit, "usd")
+    
+    if not data:
+        print("Impossible de récupérer les données")
+        return
+    
+    # Display
+    print(f"\n{Fore.BLUE}{Style.BRIGHT}=== TOP {limit} (USD) ==={Style.RESET_ALL}")
+    display_table(data, "USD")
+    
+    print(f"\n{Fore.CYAN}{'=' * 70}{Style.RESET_ALL}")
 
 
-if __name__ == "__main__":
-    main()
+main()
