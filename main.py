@@ -110,39 +110,69 @@ def fetch_from_binance(cryptos, currency="usd"):
     
     return results if results else None
 
-def fetch_from_coincap(cryptos, currency="usd"):
-    """جلب الأسعار من CoinCap API"""
-    if currency != "usd":
-        return None
+def fetch_from_coinpaprika(cryptos, currency="usd"):
+    """جلب الأسعار من CoinPaprika API (بديل CoinCap)"""
+    # Mapping من CoinGecko ID إلى CoinPaprika ID
+    PAPRIKA_MAP = {
+        "bitcoin": "btc-bitcoin",
+        "ethereum": "eth-ethereum",
+        "binancecoin": "bnb-binance-coin",
+        "solana": "sol-solana",
+        "ripple": "xrp-xrp",
+        "cardano": "ada-cardano",
+        "dogecoin": "doge-dogecoin",
+        "polkadot": "dot-polkadot",
+        "tron": "trx-tron",
+        "litecoin": "ltc-litecoin",
+        "chainlink": "link-chainlink",
+        "monero": "xmr-monero",
+        "zcash": "zec-zcash",
+        "stellar": "xlm-stellar",
+        "uniswap": "uni-uniswap",
+        "aave": "aave-aave",
+        "cosmos": "atom-cosmos",
+        "filecoin": "fil-filecoin",
+        "aptos": "apt-aptos",
+        "arbitrum": "arb-arbitrum",
+        "optimism": "op-optimism",
+        "matic-network": "matic-polygon",
+        "avalanche-2": "avax-avalanche",
+        "shiba-inu": "shib-shiba-inu",
+    }
     
-    url = "https://api.coincap.io/v2/assets"
-    params = {"limit": 2000}
-    
+    url = "https://api.coinpaprika.com/v1/tickers"
     try:
-        response = requests.get(url, params=params, timeout=10)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
-        all_data = response.json().get("data", [])
+        all_data = response.json()
     except requests.RequestException as e:
-        print(f"CoinCap erreur: {e}")
+        print(f"CoinPaprika erreur: {e}")
         return None
     
     # نبنيو dict بالـid
-    coincap_index = {asset["id"]: asset for asset in all_data}
+    paprika_index = {t["id"]: t for t in all_data}
     
     results = []
     for cg_id in cryptos:
-        asset = coincap_index.get(cg_id)
-        if not asset:
+        paprika_id = PAPRIKA_MAP.get(cg_id)
+        if not paprika_id:
+            continue
+        
+        ticker = paprika_index.get(paprika_id)
+        if not ticker:
             continue
         
         try:
+            quotes = ticker.get("quotes", {})
+            quote = quotes.get(currency.upper(), {})
+            
             results.append({
                 "id": cg_id,
-                "symbol": asset["symbol"].lower(),
-                "name": asset["name"],
-                "current_price": float(asset["priceUsd"]),
-                "price_change_percentage_24h": float(asset.get("changePercent24Hr") or 0),
-                "market_cap": float(asset.get("marketCapUsd") or 0),
+                "symbol": ticker["symbol"].lower(),
+                "name": ticker["name"],
+                "current_price": quote.get("price", 0),
+                "price_change_percentage_24h": quote.get("percent_change_24h", 0),
+                "market_cap": quote.get("market_cap", 0),
             })
         except (KeyError, ValueError):
             continue
@@ -150,11 +180,11 @@ def fetch_from_coincap(cryptos, currency="usd"):
     return results if results else None
 
 def fetch_prices_robust(cryptos, currency="usd"):
-    """جلب الأسعار مع Fallback (CoinGecko → Binance → CoinCap)"""
+    """جلب الأسعار مع Fallback (CoinGecko → Binance → CoinPaprika)"""
     providers = [
-        ("CoinGecko", lambda: fetch_prices(currency, cryptos)),
-        ("Binance",   lambda: fetch_from_binance(cryptos, currency)),
-        ("CoinCap",   lambda: fetch_from_coincap(cryptos, currency)),
+        ("CoinGecko",   lambda: fetch_prices(currency, cryptos)),
+        ("Binance",     lambda: fetch_from_binance(cryptos, currency)),
+        ("CoinPaprika", lambda: fetch_from_coinpaprika(cryptos, currency)),
     ]
     
     for name, provider in providers:
