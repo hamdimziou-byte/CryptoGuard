@@ -47,7 +47,128 @@ def get_top_cryptos(limit=100, currency="usd"):
         print(f"Erreur API top: {e}")
         return None
 
+# Mapping من CoinGecko ID إلى Binance Symbol
+BINANCE_MAP = {
+    "bitcoin": "BTCUSDT",
+    "ethereum": "ETHUSDT",
+    "binancecoin": "BNBUSDT",
+    "solana": "SOLUSDT",
+    "ripple": "XRPUSDT",
+    "cardano": "ADAUSDT",
+    "dogecoin": "DOGEUSDT",
+    "polkadot": "DOTUSDT",
+    "tron": "TRXUSDT",
+    "litecoin": "LTCUSDT",
+    "chainlink": "LINKUSDT",
+    "monero": "XMRUSDT",
+    "zcash": "ZECUSDT",
+    "tether": "USDTUSDT",
+    "usd-coin": "USDCUSDT",
+    "stellar": "XLMUSDT",
+    "uniswap": "UNIUSDT",
+    "aave": "AAVEUSDT",
+    "cosmos": "ATOMUSDT",
+    "filecoin": "FILUSDT",
+    "aptos": "APTUSDT",
+    "arbitrum": "ARBUSDT",
+    "optimism": "OPUSDT",
+    "polygon": "MATICUSDT",
+    "avalanche-2": "AVAXUSDT",
+    "shiba-inu": "SHIBUSDT",
+}
 
+
+def fetch_from_binance(cryptos, currency="usd"):
+    """جلب الأسعار من Binance API"""
+    if currency != "usd":
+        return None  # Binance يدعم USD فقط في هذا الـendpoint
+    
+    results = []
+    for cg_id in cryptos:
+        binance_symbol = BINANCE_MAP.get(cg_id)
+        if not binance_symbol:
+            continue
+        
+        url = f"https://api.binance.com/api/v3/ticker/24hr"
+        params = {"symbol": binance_symbol}
+        
+        try:
+            response = requests.get(url, params=params, timeout=5)
+            response.raise_for_status()
+            data = response.json()
+            
+            results.append({
+                "id": cg_id,
+                "symbol": binance_symbol.replace("USDT", "").lower(),
+                "name": cg_id.replace("-", " ").title(),
+                "current_price": float(data["lastPrice"]),
+                "price_change_percentage_24h": float(data["priceChangePercent"]),
+                "market_cap": 0,  # Binance ما يعطيش market cap
+            })
+        except (requests.RequestException, KeyError, ValueError):
+            continue
+    
+    return results if results else None
+
+def fetch_from_coincap(cryptos, currency="usd"):
+    """جلب الأسعار من CoinCap API"""
+    if currency != "usd":
+        return None
+    
+    url = "https://api.coincap.io/v2/assets"
+    params = {"limit": 2000}
+    
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        all_data = response.json().get("data", [])
+    except requests.RequestException as e:
+        print(f"CoinCap erreur: {e}")
+        return None
+    
+    # نبنيو dict بالـid
+    coincap_index = {asset["id"]: asset for asset in all_data}
+    
+    results = []
+    for cg_id in cryptos:
+        asset = coincap_index.get(cg_id)
+        if not asset:
+            continue
+        
+        try:
+            results.append({
+                "id": cg_id,
+                "symbol": asset["symbol"].lower(),
+                "name": asset["name"],
+                "current_price": float(asset["priceUsd"]),
+                "price_change_percentage_24h": float(asset.get("changePercent24Hr") or 0),
+                "market_cap": float(asset.get("marketCapUsd") or 0),
+            })
+        except (KeyError, ValueError):
+            continue
+    
+    return results if results else None
+
+def fetch_prices_robust(cryptos, currency="usd"):
+    """جلب الأسعار مع Fallback (CoinGecko → Binance → CoinCap)"""
+    providers = [
+        ("CoinGecko", lambda: fetch_prices(currency, cryptos)),
+        ("Binance",   lambda: fetch_from_binance(cryptos, currency)),
+        ("CoinCap",   lambda: fetch_from_coincap(cryptos, currency)),
+    ]
+    
+    for name, provider in providers:
+        try:
+            data = provider()
+            if data:
+                if name != "CoinGecko":
+                    print(f"{Fore.YELLOW}[Fallback: {name}]{Style.RESET_ALL}")
+                return data
+        except Exception as e:
+            print(f"{Fore.RED}[{name} error: {e}]{Style.RESET_ALL}")
+            continue
+    
+    return None
 def search_crypto(query):
     """البحث عن عملة بالاسم أو الرمز"""
     url = "https://api.coingecko.com/api/v3/search"
@@ -215,9 +336,8 @@ def check_alerts(alerts_data, prices_data):
 def main():
     import sys
     
-    # Parse arguments
     args = sys.argv[1:]
-    limit = 5  # default
+    limit = 5
     search_query = None
     
     if "--top" in args:
@@ -230,8 +350,7 @@ def main():
         if idx + 1 < len(args):
             search_query = args[idx + 1]
     
-    # Header
-    print(f"{Fore.CYAN}{Style.BRIGHT}CryptoGuard v1.1.0{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{Style.BRIGHT}CryptoGuard v1.2.0{Style.RESET_ALL}")
     print(f"{Fore.CYAN}{'=' * 70}{Style.RESET_ALL}")
     print(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{Fore.CYAN}{'=' * 70}{Style.RESET_ALL}")
@@ -251,8 +370,13 @@ def main():
     print(f"\n{Fore.YELLOW}Top {limit} cryptos (Market Cap){Style.RESET_ALL}")
     data = get_top_cryptos(limit, "usd")
     
+    # Fallback إذا CoinGecko فشل
     if not data:
-        print("Impossible de récupérer les données")
+        print(f"{Fore.YELLOW}Tentative avec APIs alternatives...{Style.RESET_ALL}")
+        data = fetch_prices_robust(CRYPTOS[:limit], "usd")
+    
+    if not data:
+        print(f"{Fore.RED}Impossible de récupérer les données{Style.RESET_ALL}")
         return
     
     # Display
