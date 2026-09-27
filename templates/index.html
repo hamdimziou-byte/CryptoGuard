@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ CryptoGuard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>🛡️ CryptoGuard</h1>
+        <p>Surveillance des cryptomonnaies en temps réel</p>
+    </header>
+
+    <div class="controls">
+        <select id="limit">
+            <option value="10">Top 10</option>
+            <option value="20" selected>Top 20</option>
+            <option value="50">Top 50</option>
+            <option value="100">Top 100</option>
+        </select>
+
+        <select id="currency">
+            <option value="usd" selected>USD ($)</option>
+            <option value="eur">EUR (€)</option>
+        </select>
+
+        <button id="refresh">🔄 Rafraîchir</button>
+    </div>
+
+    <div id="loading" class="loading">⏳ Chargement...</div>
+    <div id="error" class="error" style="display:none;"></div>
+
+    <table id="prices-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Symbole</th>
+                <th>Nom</th>
+                <th>Prix</th>
+                <th>24h</th>
+                <th>Market Cap</th>
+            </tr>
+        </thead>
+        <tbody id="prices-body"></tbody>
+    </table>
+
+    <footer>
+        <p>Dernière mise à jour: <span id="timestamp">-</span></p>
+        <p>Powered by CoinGecko • Binance • CoinPaprika</p>
+    </footer>
+
+    <script>
+        async function loadPrices() {
+            const limit = document.getElementById('limit').value;
+            const currency = document.getElementById('currency').value;
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            
+            try {
+                const response = await fetch(`/api/prices?limit=${limit}&currency=${currency}`);
+                if (!response.ok) throw new Error('Erreur API');
+                
+                const result = await response.json();
+                renderTable(result.data, currency.toUpperCase());
+                document.getElementById('timestamp').textContent = new Date(result.timestamp).toLocaleString();
+            } catch (error) {
+                document.getElementById('error').textContent = '❌ ' + error.message;
+                document.getElementById('error').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        function renderTable(data, currency) {
+            const tbody = document.getElementById('prices-body');
+            tbody.innerHTML = '';
+            
+            data.forEach((coin, index) => {
+                const change = coin.price_change_percentage_24h || 0;
+                const changeClass = change >= 0 ? 'positive' : 'negative';
+                const arrow = change >= 0 ? '▲' : '▼';
+                const symbol = currency === 'USD' ? '$' : '€';
+                
+                const row = `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td><strong>${coin.symbol.toUpperCase()}</strong></td>
+                        <td>${coin.name}</td>
+                        <td>${symbol}${coin.current_price.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td class="${changeClass}">${arrow} ${change.toFixed(2)}%</td>
+                        <td>${symbol}${coin.market_cap.toLocaleString('fr-FR')}</td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+        
+        document.getElementById('refresh').addEventListener('click', loadPrices);
+        document.getElementById('limit').addEventListener('change', loadPrices);
+        document.getElementById('currency').addEventListener('change', loadPrices);
+        
+        // تحميل أولي
+        loadPrices();
+        
+        // تحديث تلقائي كل 60 ثانية
+        setInterval(loadPrices, 60000);
+    </script>
+</body>
+</html>
