@@ -1,5 +1,18 @@
-﻿.venv/
+﻿# Python
+.venv/
 __pycache__/
 *.pyc
+*.pyo
 .env
+
+# Backups
 *backup*.txt
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# IDE
+.vscode/
+.idea/
