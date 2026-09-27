@@ -224,4 +224,5 @@ def main():
     print(f"\n{Fore.BLUE}{Style.BRIGHT}=== {curr.upper()} ==={Style.RESET_ALL}")
 
 
-main()
+if __name__ == "__main__":
+    main()
