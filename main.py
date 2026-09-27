@@ -4,6 +4,9 @@ from datetime import datetime
 import json
 import os
 
+from colorama import init, Fore, Style
+
+init(autoreset=True)
 
 CRYPTOS = ["bitcoin", "ethereum", "binancecoin", "solana", "ripple"]
 WATCHLIST_FILE = "watchlist.json"
@@ -41,23 +44,38 @@ def get_exchange_rate(target_currency="TND"):
 
 def format_change(change):
     if change is None:
-        return "  N/A "
-    arrow = "^" if change >= 0 else "v"
-    return f"{arrow} {change:+.2f}%"
+        return f"{Fore.YELLOW}  N/A {Style.RESET_ALL}"
+    
+    if change >= 0:
+        color = Fore.GREEN
+        arrow = "^"
+    else:
+        color = Fore.RED
+        arrow = "v"
+    
+    return f"{color}{arrow} {change:+.2f}%{Style.RESET_ALL}"
 
 
 def display_table(data, currency="USD"):
-    rows = []
+    # Header
+    header = f"{Fore.CYAN}{'Symbole':<8}{'Nom':<12}{'Prix':<18}{'24h':<15}{'Market Cap':<20}{Style.RESET_ALL}"
+    print(header)
+    print(f"{Fore.CYAN}{'-' * 70}{Style.RESET_ALL}")
+    
     for coin in data:
-        rows.append({
-            "Symbole": coin["symbol"].upper(),
-            "Nom": coin["name"],
-            f"Prix ({currency})": f"{coin['current_price']:,.2f}",
-            "24h": format_change(coin.get("price_change_percentage_24h")),
-            "Market Cap": f"{coin['market_cap']:,.0f}"
-        })
-    df = pd.DataFrame(rows)
-    print(df.to_string(index=False))
+        symbol = coin["symbol"].upper()
+        name = coin["name"][:10]
+        price = f"{coin['current_price']:,.2f}"
+        change_str = format_change(coin.get("price_change_percentage_24h"))
+        market_cap = f"{coin['market_cap']:,.0f}"
+        
+        # لون الرمز (أصفر)
+        symbol_colored = f"{Fore.YELLOW}{symbol:<8}{Style.RESET_ALL}"
+        name_colored = f"{name:<12}"
+        price_colored = f"{Fore.WHITE}{price:<18}{Style.RESET_ALL}"
+        cap_colored = f"{Fore.MAGENTA}{market_cap:<20}{Style.RESET_ALL}"
+        
+        print(f"{symbol_colored}{name_colored}{price_colored}{change_str:<15}{cap_colored}")
 
 
 def load_watchlist():
@@ -155,7 +173,7 @@ def check_alerts(alerts_data, prices_data):
     
     if triggered:
         print("\n" + "=" * 70)
-        print("🚨 ALERTES DECLENCHEES:")
+        print(f"{Fore.RED}{Style.BRIGHT}ALERTES DECLENCHEES:{Style.RESET_ALL}")
         print("=" * 70)
         for msg in triggered:
             print(msg)
@@ -164,7 +182,7 @@ def check_alerts(alerts_data, prices_data):
         print("\n✅ Aucune alerte declenchee")
 
 def main():
-    print("CryptoGuard v0.5.0")
+    print(f"{Fore.CYAN}{Style.BRIGHT}CryptoGuard v0.6.0{Style.RESET_ALL}")
     print("=" * 70)
     print(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 70)
@@ -182,7 +200,7 @@ def main():
     alerts_data = load_alerts()
 
     for curr in currencies:
-        print(f"\n=== {curr.upper()} ===")
+        print(f"\n{Fore.BLUE}{Style.BRIGHT}=== {curr.upper()} ==={Style.RESET_ALL}")
         if curr == "usd":
             if data_usd:
                 display_table(data_usd, "USD")
@@ -203,7 +221,7 @@ def main():
     print("\n" + "=" * 70)
     print("🔔 Verification des alertes...")
     check_alerts(alerts_data, data_usd)
-    print("\n" + "=" * 70)
+    print(f"\n{Fore.BLUE}{Style.BRIGHT}=== {curr.upper()} ==={Style.RESET_ALL}")
 
 
 main()
