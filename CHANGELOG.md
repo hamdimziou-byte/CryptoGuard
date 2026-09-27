@@ -4,7 +4,7 @@ Toutes les modifications notables de CryptoGuard sont documentées ici.
 
 ## [1.0.0] - 2026-09-27
 
-### 🎉 Version initiale
+### 🎉 Version initiale stable
 
 **Fonctionnalités principales:**
 - 🖥️ Interface graphique (Tkinter)
@@ -23,9 +23,7 @@ Toutes les modifications notables de CryptoGuard sont documentées ici.
 - 🔘 Sélection devise (USD/EUR/TND)
 - 📊 Tableau coloré (vert/hausse, rouge/baisse)
 - 📅 Barre de statut
-
-### Modifié
-- `main.py` : ajout de `if __name__ == "__main__"`
+- 📦 Packaging avec PyInstaller (`CryptoGuard.exe`)
 
 ## [0.6.0] - 2026-09-27
 
@@ -48,7 +46,6 @@ Toutes les modifications notables de CryptoGuard sont documentées ici.
 ### Ajouté
 - 👁️ Watchlist personnalisable (`watchlist.json`)
 - 💾 Sauvegarde/chargement des cryptos suivies
-- 💱 Sélection des devises
 
 ## [0.3.0] - 2026-09-26
 
