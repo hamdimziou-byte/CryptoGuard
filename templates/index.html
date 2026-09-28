@@ -58,6 +58,7 @@
                 <th>Prix</th>
                 <th>24h</th>
                 <th>Market Cap</th>
+                <th>Risk Score</th>
                 <th>⭐</th>
             </tr>
         </thead>
@@ -136,6 +137,16 @@
                 row += '<td class="' + changeClass + '">' + arrow + ' ' + change.toFixed(2) + '%</td>';
                 row += '<td>' + symbol + cap + '</td>';
                 row += '<td><button onclick="addToWatchlist(\'' + coin.id + '\', \'' + coin.symbol + '\')" style="padding:5px 10px; border-radius:8px; border:none; background:#f9e2af; color:#1e1e2e; font-weight:bold; cursor:pointer; font-size:1em;">⭐</button></td>';
+                        // Risk Score
+        let riskColor = '#a6e3a1';
+        if (coin.risk_color === 'DANGER') riskColor = '#f38ba8';
+        else if (coin.risk_color === 'WARN') riskColor = '#f9e2af';
+        
+        const flags = coin.risk_flags ? coin.risk_flags.join(' | ') : '';
+        const riskScore = coin.risk_score || 0;
+        
+        row
+
                 row += '</tr>';
                 
                 tbody.innerHTML += row;

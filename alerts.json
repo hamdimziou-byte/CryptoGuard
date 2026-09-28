@@ -2,6 +2,6 @@
   "alerts": [
     {"crypto": "bitcoin", "below": 80000},
     {"crypto": "ethereum", "below": 2500},
-    {"crypto": "solana", "above": 120}
+    {"crypto": "solana", "above": 150}
   ]
 }

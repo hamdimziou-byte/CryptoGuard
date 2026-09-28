@@ -10,7 +10,7 @@ init(autoreset=True)
 
 CRYPTOS = ["bitcoin", "ethereum", "binancecoin", "solana", "ripple"]
 WATCHLIST_FILE = "watchlist.json"
-
+ALERTS_FILE = "alerts.json"
 
 def fetch_prices(vs_currency="usd", cryptos=None):
     if cryptos is None:
@@ -103,7 +103,7 @@ def fetch_from_binance(cryptos, currency="usd"):
                 "name": cg_id.replace("-", " ").title(),
                 "current_price": float(data["lastPrice"]),
                 "price_change_percentage_24h": float(data["priceChangePercent"]),
-                "market_cap": 0,  # Binance ما يعطيش market cap
+                "market_cap": quote.get("market_cap", 0),
             })
         except (requests.RequestException, KeyError, ValueError):
             continue
@@ -269,6 +269,7 @@ def load_watchlist():
         return default
     try:
         with open(WATCHLIST_FILE, "r", encoding="utf-8") as f:
+            
             return json.load(f)
     except (json.JSONDecodeError, IOError) as e:
         print(f"Erreur lecture watchlist: {e}")
@@ -412,7 +413,10 @@ def main():
     # Display
     print(f"\n{Fore.BLUE}{Style.BRIGHT}=== TOP {limit} (USD) ==={Style.RESET_ALL}")
     display_table(data, "USD")
-    
+        # ✅ قحص Alerts
+    alerts_data = load_alerts()
+    print(f"\n{Fore.YELLOW}🔔 Verification des alertes...{Style.RESET_ALL}")
+    check_alerts(alerts_data, data)
     print(f"\n{Fore.CYAN}{'=' * 70}{Style.RESET_ALL}")
 
 

@@ -9,11 +9,19 @@ from datetime import datetime
 from models import db, User, WatchlistItem
 from auth import auth
 import main as cg
+from scam_detector import enrich_with_risk
 import os
+
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///cryptoguard.db"
+database_url = os.environ.get("DATABASE_URL", "sqlite:///cryptoguard.db")
+
+# Render يعطي postgres:// أما SQLAlchemy يحتاج postgresql://
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Init extensions
@@ -57,6 +65,8 @@ def api_prices():
     
     if not data:
         return jsonify({"error": "Impossible de récupérer les données"}), 500
+        # زيد Risk Score لكل عملة
+    data = enrich_with_risk(data)
     
     return jsonify({
         "timestamp": datetime.now().isoformat(),
