@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - CryptoGuard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1><a href="/" style="text-decoration:none; color:inherit;">🛡️ CryptoGuard</a></h1>
+        <p>Connexion</p>
+    </header>
+
+    <div class="auth-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" class="auth-form">
+            <label for="username">Nom d'utilisateur</label>
+            <input type="text" id="username" name="username" required autofocus>
+
+            <label for="password">Mot de passe</label>
+            <input type="password" id="password" name="password" required>
+
+            <button type="submit">Se connecter</button>
+        </form>
+
+        <p class="auth-link">
+            Pas encore de compte? <a href="{{ url_for('auth.register') }}">Inscrivez-vous</a>
+        </p>
+    </div>
+</body>
+</html>

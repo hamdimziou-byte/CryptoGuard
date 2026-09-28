@@ -13,3 +13,9 @@ dist/
 
 # IDE
 .vscode/
+.idea/
+
+# Database
+instance/
+*.db
+cryptoguard.db

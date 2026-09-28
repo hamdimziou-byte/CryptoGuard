@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ma Watchlist - CryptoGuard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" style="font-weight:bold; font-size:1.2em; color:#89b4fa; text-decoration:none;">
+            🛡️ CryptoGuard
+        </a>
+        <div class="navbar-links">
+            <a href="/">Accueil</a>
+            <a href="/watchlist">⭐ Watchlist</a>
+            <span style="color:#a6e3a1;">👤 {{ current_user.username }}</span>
+            <a href="/profile">Profil</a>
+            <a href="/logout" class="btn-secondary">Déconnexion</a>
+        </div>
+    </nav>
+
+    <header>
+        <h1>⭐ Ma Watchlist</h1>
+        <p>Vos cryptomonnaies favorites</p>
+    </header>
+
+    {% if items %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Symbole</th>
+                    <th>Nom</th>
+                    <th>Prix</th>
+                    <th>24h</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                    {% set price = prices.get(item.crypto_id) %}
+                    <tr>
+                        <td><strong>{{ item.crypto_symbol }}</strong></td>
+                        <td>{{ price.name if price else item.crypto_id }}</td>
+                        <td>
+                            {% if price %}
+                                ${{ "%.2f"|format(price.current_price) }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if price %}
+                                {% set change = price.price_change_percentage_24h or 0 %}
+                                <span class="{{ 'positive' if change >= 0 else 'negative' }}">
+                                    {{ '▲' if change >= 0 else '▼' }} {{ "%.2f"|format(change) }}%
+                                </span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button onclick="removeFromWatchlist('{{ item.crypto_id }}')" 
+                                    style="padding:8px 15px; border-radius:8px; border:none; background:#f38ba8; color:#1e1e2e; font-weight:bold; cursor:pointer;">
+                                ❌ Retirer
+                            </button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="auth-container" style="text-align:center;">
+            <h3 style="color:#89b4fa; margin-bottom:15px;">📭 Watchlist vide</h3>
+            <p style="color:#a6adc8; margin-bottom:20px;">
+                Ajoutez des cryptomonnaies depuis la page d'accueil!
+            </p>
+            <a href="/" class="btn-primary">🏠 Aller à l'accueil</a>
+        </div>
+    {% endif %}
+
+    <script>
+        async function removeFromWatchlist(cryptoId) {
+            if (!confirm('Retirer cette crypto de votre watchlist?')) return;
+            
+            try {
+                const response = await fetch(`/watchlist/remove/${cryptoId}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    location.reload();
+                }
+            } catch (error) {
+                alert('Erreur: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

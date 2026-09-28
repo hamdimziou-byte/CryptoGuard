@@ -155,4 +155,150 @@ footer span {
     th, td {
         padding: 10px 8px;
     }
+
+    /* ═══ Auth Forms ═══ */
+.auth-container {
+    max-width: 450px;
+    margin: 40px auto;
+    background: #313244;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.auth-form label {
+    font-weight: 600;
+    color: #cdd6f4;
+    margin-bottom: -8px;
+}
+
+.auth-form input {
+    padding: 12px 15px;
+    border-radius: 10px;
+    border: 2px solid #45475a;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    font-size: 1em;
+    transition: border-color 0.3s;
+}
+
+.auth-form input:focus {
+    outline: none;
+    border-color: #89b4fa;
+}
+
+.auth-form button {
+    margin-top: 10px;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    background: #a6e3a1;
+    color: #1e1e2e;
+    font-size: 1.05em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.auth-form button:hover {
+    background: #94e2d5;
+    transform: translateY(-2px);
+}
+
+.auth-link {
+    text-align: center;
+    margin-top: 20px;
+    color: #a6adc8;
+}
+
+.auth-link a {
+    color: #89b4fa;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.auth-link a:hover {
+    text-decoration: underline;
+}
+
+.flash {
+    padding: 12px 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.flash-success {
+    background: rgba(166, 227, 161, 0.2);
+    color: #a6e3a1;
+    border-left: 4px solid #a6e3a1;
+}
+
+.flash-error {
+    background: rgba(243, 139, 168, 0.2);
+    color: #f38ba8;
+    border-left: 4px solid #f38ba8;
+}
+
+/* ═══ Navbar ═══ */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 30px;
+    background: #313244;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.navbar-links {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.navbar-links a {
+    color: #cdd6f4;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s;
+}
+
+.navbar-links a:hover {
+    color: #89b4fa;
+}
+
+.btn-primary {
+    padding: 10px 20px;
+    border-radius: 8px;
+    background: #89b4fa;
+    color: #1e1e2e !important;
+    text-decoration: none;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.btn-primary:hover {
+    background: #74c7ec;
+    transform: translateY(-2px);
+}
+
+.btn-secondary {
+    padding: 10px 20px;
+    border-radius: 8px;
+    background: #f38ba8;
+    color: #1e1e2e !important;
+    text-decoration: none;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+.btn-secondary:hover {
+    background: #eba0ac;
+    transform: translateY(-2px);
 }

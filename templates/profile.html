@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profil - CryptoGuard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" style="font-weight:bold; font-size:1.2em; color:#89b4fa; text-decoration:none;">
+            🛡️ CryptoGuard
+        </a>
+        <div class="navbar-links">
+            <a href="/">Accueil</a>
+            <span style="color:#a6e3a1;">👤 {{ current_user.username }}</span>
+            <a href="/logout" class="btn-secondary">Déconnexion</a>
+        </div>
+    </nav>
+
+    <div class="auth-container">
+        <h2 style="color:#89b4fa; margin-bottom:20px;">👤 Mon Profil</h2>
+        
+        <div style="background:#1e1e2e; padding:20px; border-radius:10px; margin-bottom:20px;">
+            <p style="margin-bottom:10px;"><strong>Nom d'utilisateur:</strong> {{ user.username }}</p>
+            <p style="margin-bottom:10px;"><strong>Email:</strong> {{ user.email }}</p>
+            <p><strong>Membre depuis:</strong> {{ user.created_at.strftime('%d/%m/%Y') }}</p>
+        </div>
+
+        <p style="text-align:center; color:#a6adc8;">
+            🚧 Fonctionnalités à venir: watchlist personnalisée, alertes, etc.
+        </p>
+    </div>
+</body>
+</html>
