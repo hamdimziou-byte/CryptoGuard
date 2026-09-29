@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 import json
 import os
-
+import time
 from colorama import init, Fore, Style
 
 init(autoreset=True)
@@ -30,19 +30,32 @@ def fetch_prices(vs_currency="usd", cryptos=None):
         return None
 
 def get_top_cryptos(limit=100, currency="usd"):
-    """جلب أعلى N عملة حسب Market Cap"""
+    """جلب أعلى N عملة مع Cache"""
+    cache_key = f"top_{limit}_{currency}"
+    
+    # 1. جرب Cache
+    cached = load_cache(cache_key)
+    if cached:
+        return cached
+    
+    # 2. Fetch من API
     url = "https://api.coingecko.com/api/v3/coins/markets"
     params = {
         "vs_currency": currency,
         "order": "market_cap_desc",
-        "per_page": min(limit, 250),  # الحد الأقصى 250 لكل صفحة
+        "per_page": min(limit, 250),
         "page": 1,
         "price_change_percentage": "24h"
     }
+    
     try:
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        
+        # 3. حفظ في Cache
+        save_cache(cache_key, data)
+        return data
     except requests.RequestException as e:
         print(f"Erreur API top: {e}")
         return None
@@ -222,7 +235,44 @@ def get_exchange_rate(target_currency="TND"):
     except requests.RequestException as e:
         print(f"Erreur API taux: {e}")
         return None
+def load_cache(key):
+    """تحميل من الـcache إذا موجود وما زالش صالح"""
+    if not os.path.exists(CACHE_FILE):
+        return None
+    
+    try:
+        with open(CACHE_FILE, "r", encoding="utf-8") as f:
+            cache = json.load(f)
+        
+        entry = cache.get(key)
+        if entry and (time.time() - entry["timestamp"]) < CACHE_DURATION:
+            return entry["data"]
+    except (json.JSONDecodeError, IOError):
+        pass
+    
+    return None
 
+
+def save_cache(key, data):
+    """حفظ في الـcache"""
+    cache = {}
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            cache = {}
+    
+    cache[key] = {
+        "timestamp": time.time(),
+        "data": data
+    }
+    
+    try:
+        with open(CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False)
+    except IOError:
+        pass
 
 def format_change(change):
     if change is None:
@@ -285,7 +335,8 @@ def save_watchlist(watchlist):
         print(f"Erreur ecriture: {e}")
 
 ALERTS_FILE = "alerts.json"
-
+CACHE_FILE = "cache.json"
+CACHE_DURATION = 300  # 5 دقائق
 
 def load_alerts():
     """تحميل التنبيهات من ملف"""

@@ -21,3 +21,4 @@ instance/
 cryptoguard.db
 # Environment variables
 .env
+cache/
