@@ -9,6 +9,7 @@ from datetime import datetime
 from models import db, User, WatchlistItem
 from auth import auth
 import main as cg
+from ai_chat import chat
 from scam_detector import enrich_with_risk
 import os
 
@@ -74,7 +75,27 @@ def api_prices():
         "data": data
     })
 
-
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    """API: AI Chat"""
+    data = request.get_json()
+    message = data.get("message", "").strip()
+    
+    if not message:
+        return jsonify({"error": "Message vide"}), 400
+    
+    # جلب أسعار العملات باش AI يستعملها
+    crypto_data = cg.get_top_cryptos(10, "usd")
+    if not crypto_data:
+         crypto_data = cg.fetch_prices_robust(cg.CRYPTOS[:10], "usd")
+    
+    # رد AI
+    response = chat(message, crypto_data)
+    
+    return jsonify({
+        "message": message,
+        "response": response
+    })
 @app.route("/api/search")
 def api_search():
     query = request.args.get("q", "")

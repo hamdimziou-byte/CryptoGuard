@@ -103,7 +103,7 @@ def fetch_from_binance(cryptos, currency="usd"):
                 "name": cg_id.replace("-", " ").title(),
                 "current_price": float(data["lastPrice"]),
                 "price_change_percentage_24h": float(data["priceChangePercent"]),
-                "market_cap": quote.get("market_cap", 0),
+                "market_cap": 0,
             })
         except (requests.RequestException, KeyError, ValueError):
             continue
