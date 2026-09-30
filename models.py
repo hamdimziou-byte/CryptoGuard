@@ -9,10 +9,6 @@ from datetime import datetime
 db = SQLAlchemy()
 
 
-# ═══════════════════════════════════════════════════════
-#  USER
-# ═══════════════════════════════════════════════════════
-
 class User(UserMixin, db.Model):
     __tablename__ = "users"
     
@@ -22,17 +18,12 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Relations
     watchlist = db.relationship("WatchlistItem", backref="user", lazy=True, cascade="all, delete-orphan")
     portfolio = db.relationship("PortfolioItem", backref="user", lazy=True, cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User {self.username}>"
 
-
-# ═══════════════════════════════════════════════════════
-#  WATCHLIST
-# ═══════════════════════════════════════════════════════
 
 class WatchlistItem(db.Model):
     __tablename__ = "watchlist"
@@ -46,10 +37,6 @@ class WatchlistItem(db.Model):
     def __repr__(self):
         return f"<WatchlistItem {self.crypto_symbol}>"
 
-
-# ═══════════════════════════════════════════════════════
-#  PORTFOLIO
-# ═══════════════════════════════════════════════════════
 
 class PortfolioItem(db.Model):
     __tablename__ = "portfolio"
