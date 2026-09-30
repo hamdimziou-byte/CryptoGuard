@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{ get_locale() }}" {% if get_locale() == 'ar' %}dir="rtl"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,69 +16,74 @@
     </script>
 </head>
 <body>
-    <!-- NAVBAR -->
+    <!-- ═══ NAVBAR ═══ -->
     <nav class="navbar">
         <a href="/" style="font-weight:bold; font-size:1.2em; color:var(--accent-blue); text-decoration:none;">
             🛡️ CryptoGuard
         </a>
         <div class="navbar-links">
-            <a href="/">Accueil</a>
+            <a href="/">{{ t('accueil') }}</a>
             <button onclick="toggleTheme()" id="theme-toggle" class="theme-btn" title="Thème">🌙</button>
+            <select onchange="window.location.href='/set_language/' + this.value" class="lang-selector">
+                {% for code, name in languages.items() %}
+                    <option value="{{ code }}" {% if get_locale() == code %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
             <a href="#" onclick="toggleChat(); return false;">💬 AI Chat</a>
-            <a href="#" onclick="toggleAlertForm(); return false;">🔔 Alertes</a>
+            <a href="#" onclick="toggleAlertForm(); return false;">🔔 {{ t('alertes') }}</a>
             {% if current_user.is_authenticated %}
                 <a href="/watchlist">⭐ Watchlist</a>
                 <span style="color:var(--accent-green);">👤 {{ current_user.username }}</span>
-                <a href="/profile">Profil</a>
-                <a href="/logout" class="btn-secondary">Déconnexion</a>
+                <a href="/profile">{{ t('profil') }}</a>
+                <a href="/logout" class="btn-secondary">{{ t('deconnexion') }}</a>
             {% else %}
-                <a href="/login">Connexion</a>
-                <a href="/register" class="btn-primary">Inscription</a>
+                <a href="/login">{{ t('connexion') }}</a>
+                <a href="/register" class="btn-primary">{{ t('inscription') }}</a>
             {% endif %}
         </div>
     </nav>
 
-    <!-- HEADER -->
+    <!-- ═══ HEADER ═══ -->
     <header>
         <h1>🛡️ CryptoGuard</h1>
-        <p>Surveillance des cryptomonnaies en temps réel</p>
+        <p>{{ t('titre') }}</p>
     </header>
 
-    <!-- CHART -->
+    <!-- ═══ CHART ═══ -->
     <div class="chart-container">
-        <h2>📊 BTC - 7 derniers jours</h2>
+        <h2>{{ t('chart_titre') }}</h2>
         <canvas id="price-chart"></canvas>
     </div>
 
-    <!-- CONTROLS -->
+    <!-- ═══ CONTROLS ═══ -->
     <div class="controls">
         <select id="limit">
-            <option value="10">Top 10</option>
-            <option value="20" selected>Top 20</option>
-            <option value="50">Top 50</option>
-            <option value="100">Top 100</option>
+            <option value="10">{{ t('top') }} 10</option>
+            <option value="20" selected>{{ t('top') }} 20</option>
+            <option value="50">{{ t('top') }} 50</option>
+            <option value="100">{{ t('top') }} 100</option>
         </select>
         <select id="currency">
             <option value="usd" selected>USD ($)</option>
             <option value="eur">EUR (€)</option>
         </select>
-        <button id="refresh">🔄 Rafraîchir</button>
+        <button id="refresh">🔄 {{ t('rafraichir') }}</button>
     </div>
 
     <div id="loading" class="loading">⏳ Chargement...</div>
     <div id="error" class="error" style="display:none;"></div>
 
-    <!-- TABLE -->
+    <!-- ═══ TABLE ═══ -->
     <table id="prices-table">
         <thead>
             <tr>
                 <th>#</th>
-                <th>Symbole</th>
-                <th>Nom</th>
-                <th>Prix</th>
+                <th>{{ t('symbole') }}</th>
+                <th>{{ t('nom') }}</th>
+                <th>{{ t('prix') }}</th>
                 <th>24h</th>
-                <th>Market Cap</th>
-                <th>Risque</th>
+                <th>{{ t('marche') }}</th>
+                <th>{{ t('risque') }}</th>
                 <th>⭐</th>
             </tr>
         </thead>
@@ -86,11 +91,10 @@
     </table>
 
     <footer>
-        <p>Dernière mise à jour: <span id="timestamp">-</span></p>
-        <p>Powered by CoinGecko • Binance • CoinPaprika</p>
+        <p>{{ t('chart_titre').split(' - ')[0] }} - Powered by CoinGecko • Binance • CoinPaprika</p>
     </footer>
 
-    <!-- AI CHAT -->
+    <!-- ═══ AI CHAT ═══ -->
     <div id="chat-box" class="chat-box">
         <div class="chat-header">
             <strong>💬 CryptoGuard AI</strong>
@@ -98,9 +102,42 @@
         </div>
         <div id="chat-messages" class="chat-messages"></div>
         <div class="chat-input-container">
-            <input type="text" id="chat-input" placeholder="Posez votre question..." 
+            <input type="text" id="chat-input" placeholder="{{ t('chat_placeholder') }}"
                    onkeypress="if(event.key==='Enter') sendMessage()">
-            <button onclick="sendMessage()">Envoyer</button>
+            <button onclick="sendMessage()">{{ t('envoyer') }}</button>
+        </div>
+    </div>
+
+    <!-- ═══ ALERT MODAL ═══ -->
+    <div id="alert-modal" class="alert-modal">
+        <div class="alert-modal-content">
+            <button onclick="toggleAlertForm()" class="alert-modal-close">×</button>
+            <h2>🔔 {{ t('creer_alerte') }}</h2>
+            <form id="alert-form" onsubmit="sendAlert(event); return false;" class="alert-form">
+                <label>{{ t('cryptomonnaie') }}</label>
+                <select id="alert-crypto">
+                    <option value="BTC">Bitcoin (BTC)</option>
+                    <option value="ETH">Ethereum (ETH)</option>
+                    <option value="BNB">BNB</option>
+                    <option value="SOL">Solana (SOL)</option>
+                    <option value="XRP">XRP</option>
+                </select>
+
+                <label>{{ t('condition') }}</label>
+                <select id="alert-condition">
+                    <option value="above">⬆️ Above</option>
+                    <option value="below">⬇️ Below</option>
+                </select>
+
+                <label>{{ t('prix_cible') }} ($)</label>
+                <input type="number" id="alert-price" placeholder="100000" required>
+
+                <label>{{ t('prix_actuel') }} ($)</label>
+                <input type="number" id="alert-current" placeholder="83000" required>
+
+                <button type="submit" class="btn-send-alert">📧 {{ t('envoyer_alerte') }}</button>
+                <div id="alert-status" class="alert-status"></div>
+            </form>
         </div>
     </div>
 
@@ -147,7 +184,7 @@
             const loadingDiv = document.createElement('div');
             loadingDiv.id = 'chat-loading';
             loadingDiv.className = 'chat-message ai';
-            loadingDiv.textContent = '⏳ Réflexion...';
+            loadingDiv.textContent = '⏳ ...';
             document.getElementById('chat-messages').appendChild(loadingDiv);
 
             try {
@@ -164,52 +201,54 @@
                 addChatMessage('❌ Erreur: ' + error.message, false);
             }
         }
-// ═══ ALERT FORM ═══
-function toggleAlertForm() {
-    const modal = document.getElementById('alert-modal');
-    modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
-    document.getElementById('alert-status').textContent = '';
-}
 
-async function sendAlert(event) {
-    event.preventDefault();
-    
-    const crypto = document.getElementById('alert-crypto').value;
-    const condition = document.getElementById('alert-condition').value;
-    const targetPrice = parseFloat(document.getElementById('alert-price').value);
-    const currentPrice = parseFloat(document.getElementById('alert-current').value);
-    
-    const statusEl = document.getElementById('alert-status');
-    statusEl.textContent = '⏳ Envoi en cours...';
-    statusEl.style.color = 'var(--accent-yellow)';
-    
-    try {
-        const response = await fetch('/api/alerts/test', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                crypto_symbol: crypto,
-                current_price: currentPrice,
-                condition: condition,
-                target_price: targetPrice
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            statusEl.textContent = '✅ Email envoyé avec succès!';
-            statusEl.style.color = 'var(--accent-green)';
-            setTimeout(toggleAlertForm, 2000);
-        } else {
-            statusEl.textContent = '❌ Erreur: ' + (data.error || 'Erreur inconnue');
-            statusEl.style.color = 'var(--accent-red)';
+        // ═══ ALERT FORM ═══
+        function toggleAlertForm() {
+            const modal = document.getElementById('alert-modal');
+            modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+            document.getElementById('alert-status').textContent = '';
         }
-    } catch (error) {
-        statusEl.textContent = '❌ Erreur: ' + error.message;
-        statusEl.style.color = 'var(--accent-red)';
-    }
-}
+
+        async function sendAlert(event) {
+            event.preventDefault();
+            
+            const crypto = document.getElementById('alert-crypto').value;
+            const condition = document.getElementById('alert-condition').value;
+            const targetPrice = parseFloat(document.getElementById('alert-price').value);
+            const currentPrice = parseFloat(document.getElementById('alert-current').value);
+            
+            const statusEl = document.getElementById('alert-status');
+            statusEl.textContent = '⏳ ...';
+            statusEl.style.color = 'var(--accent-yellow)';
+            
+            try {
+                const response = await fetch('/api/alerts/test', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        crypto_symbol: crypto,
+                        current_price: currentPrice,
+                        condition: condition,
+                        target_price: targetPrice
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    statusEl.textContent = '✅ Email envoyé!';
+                    statusEl.style.color = 'var(--accent-green)';
+                    setTimeout(toggleAlertForm, 2000);
+                } else {
+                    statusEl.textContent = '❌ ' + (data.error || 'Erreur');
+                    statusEl.style.color = 'var(--accent-red)';
+                }
+            } catch (error) {
+                statusEl.textContent = '❌ ' + error.message;
+                statusEl.style.color = 'var(--accent-red)';
+            }
+        }
+
         // ═══ PRICES ═══
         async function loadPrices() {
             const limit = document.getElementById('limit').value;
@@ -223,7 +262,6 @@ async function sendAlert(event) {
                 if (!response.ok) throw new Error('Erreur API');
                 const result = await response.json();
                 renderTable(result.data, currency.toUpperCase());
-                document.getElementById('timestamp').textContent = new Date(result.timestamp).toLocaleString();
             } catch (error) {
                 document.getElementById('error').textContent = '❌ ' + error.message;
                 document.getElementById('error').style.display = 'block';
@@ -275,9 +313,9 @@ async function sendAlert(event) {
                 });
                 if (response.ok) {
                     const result = await response.json();
-                    alert(result.status === 'added' ? '⭐ ' + symbol.toUpperCase() + ' ajouté!' : symbol.toUpperCase() + ' déjà dans la watchlist');
+                    alert(result.status === 'added' ? '⭐ ' + symbol.toUpperCase() + ' ajouté!' : symbol.toUpperCase() + ' déjà ajouté');
                 } else {
-                    alert('Connectez-vous pour utiliser la watchlist');
+                    alert('Connectez-vous');
                     window.location.href = '/login';
                 }
             } catch (error) {
@@ -316,16 +354,7 @@ async function sendAlert(event) {
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return '$' + context.parsed.y.toLocaleString('fr-FR', {minimumFractionDigits: 2});
-                                    }
-                                }
-                            }
-                        }
+                        plugins: { legend: { display: false } }
                     }
                 });
             } catch (error) {
@@ -342,42 +371,5 @@ async function sendAlert(event) {
         loadChart();
         setInterval(loadPrices, 60000);
     </script>
-    <!-- ALERT FORM MODAL -->
-<div id="alert-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:2000; justify-content:center; align-items:center;">
-    <div style="background:var(--bg-secondary); padding:30px; border-radius:15px; max-width:500px; width:90%; position:relative;">
-        <button onclick="toggleAlertForm()" style="position:absolute; top:15px; right:15px; background:none; border:none; color:var(--text-primary); font-size:1.5em; cursor:pointer;">×</button>
-        
-        <h2 style="color:var(--accent-blue); margin-bottom:20px;">🔔 Créer une alerte</h2>
-        
-        <form id="alert-form" onsubmit="sendAlert(event); return false;" style="display:flex; flex-direction:column; gap:15px;">
-            <label style="color:var(--text-primary); font-weight:600;">Cryptomonnaie</label>
-            <select id="alert-crypto" style="padding:12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-primary); font-size:1em;">
-                <option value="BTC">Bitcoin (BTC)</option>
-                <option value="ETH">Ethereum (ETH)</option>
-                <option value="BNB">BNB</option>
-                <option value="SOL">Solana (SOL)</option>
-                <option value="XRP">XRP</option>
-            </select>
-            
-            <label style="color:var(--text-primary); font-weight:600;">Condition</label>
-            <select id="alert-condition" style="padding:12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-primary); font-size:1em;">
-                <option value="above">Monte au-dessus de ⬆️</option>
-                <option value="below">Descend en-dessous de ⬇️</option>
-            </select>
-            
-            <label style="color:var(--text-primary); font-weight:600;">Prix cible ($)</label>
-            <input type="number" id="alert-price" placeholder="100000" required style="padding:12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-primary); font-size:1em;">
-            
-            <label style="color:var(--text-primary); font-weight:600;">Prix actuel ($) - pour test</label>
-            <input type="number" id="alert-current" placeholder="83000" required style="padding:12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-primary); font-size:1em;">
-            
-            <button type="submit" style="padding:14px; border-radius:8px; border:none; background:var(--accent-green); color:#1e1e2e; font-weight:bold; cursor:pointer; font-size:1.05em;">
-                📧 Envoyer l'alerte
-            </button>
-            
-            <div id="alert-status" style="text-align:center; font-weight:600; margin-top:10px;"></div>
-        </form>
-    </div>
-</div>
 </body>
 </html>

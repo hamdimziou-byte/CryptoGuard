@@ -1,10 +1,11 @@
 """
 CryptoGuard Web App - Flask Backend
-Version: 2.3.0
+Version: 2.5.0 - Multi-langue
 """
 
-from flask import Flask, render_template, jsonify, request, redirect, url_for
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session
 from flask_login import LoginManager, current_user, login_required
+from flask_babel import Babel, gettext as _
 from datetime import datetime
 from models import db, User, WatchlistItem
 from auth import auth
@@ -31,12 +32,125 @@ db.init_app(app)
 
 
 # ═══════════════════════════════════════════════════════
+#  BABEL (Multi-langue)
+# ═══════════════════════════════════════════════════════
+
+LANGUAGES = {
+    "fr": "Français",
+    "en": "English",
+    "ar": "العربية"
+}
+TRANSLATIONS = {
+    "fr": {
+        "accueil": "Accueil",
+        "alertes": "Alertes",
+        "connexion": "Connexion",
+        "inscription": "Inscription",
+        "profil": "Profil",
+        "deconnexion": "Déconnexion",
+        "titre": "Surveillance des cryptomonnaies en temps réel",
+        "top": "Top",
+        "rafraichir": "Rafraîchir",
+        "prix": "Prix",
+        "symbole": "Symbole",
+        "nom": "Nom",
+        "marche": "Market Cap",
+        "risque": "Risque",
+        "chart_titre": "BTC - 7 derniers jours",
+        "creer_alerte": "Créer une alerte",
+        "cryptomonnaie": "Cryptomonnaie",
+        "condition": "Condition",
+        "prix_cible": "Prix cible",
+        "prix_actuel": "Prix actuel",
+        "envoyer_alerte": "Envoyer l'alerte",
+        "chat_placeholder": "Posez votre question...",
+        "envoyer": "Envoyer",
+    },
+    "en": {
+        "accueil": "Home",
+        "alertes": "Alerts",
+        "connexion": "Login",
+        "inscription": "Sign Up",
+        "profil": "Profile",
+        "deconnexion": "Logout",
+        "titre": "Real-time cryptocurrency monitoring",
+        "top": "Top",
+        "rafraichir": "Refresh",
+        "prix": "Price",
+        "symbole": "Symbol",
+        "nom": "Name",
+        "marche": "Market Cap",
+        "risque": "Risk",
+        "chart_titre": "BTC - Last 7 days",
+        "creer_alerte": "Create an alert",
+        "cryptomonnaie": "Cryptocurrency",
+        "condition": "Condition",
+        "prix_cible": "Target price",
+        "prix_actuel": "Current price",
+        "envoyer_alerte": "Send alert",
+        "chat_placeholder": "Ask your question...",
+        "envoyer": "Send",
+    },
+    "ar": {
+        "accueil": "الرئيسية",
+        "alertes": "التنبيهات",
+        "connexion": "دخول",
+        "inscription": "تسجيل",
+        "profil": "الملف",
+        "deconnexion": "خروج",
+        "titre": "مراقبة العملات الرقمية في الوقت الحقيقي",
+        "top": "الأعلى",
+        "rafraichir": "تحديث",
+        "prix": "السعر",
+        "symbole": "الرمز",
+        "nom": "الاسم",
+        "marche": "القيمة السوقية",
+        "risque": "المخاطر",
+        "chart_titre": "BTC - آخر 7 أيام",
+        "creer_alerte": "إنشاء تنبيه",
+        "cryptomonnaie": "العملة الرقمية",
+        "condition": "الشرط",
+        "prix_cible": "السعر المستهدف",
+        "prix_actuel": "السعر الحالي",
+        "envoyer_alerte": "إرسال التنبيه",
+        "chat_placeholder": "اطرح سؤالك...",
+        "envoyer": "إرسال",
+    },
+}
+
+
+def t(key):
+    """ترجمة كلمة حسب اللغة الحالية"""
+    lang = get_locale()
+    return TRANSLATIONS.get(lang, TRANSLATIONS["fr"]).get(key, key)
+app.config["BABEL_DEFAULT_LOCALE"] = "fr"
+app.config["BABEL_SUPPORTED_LOCALES"] = list(LANGUAGES.keys())
+
+babel = Babel()
+
+
+def get_locale():
+    if "language" in session:
+        return session["language"]
+    return request.accept_languages.best_match(LANGUAGES.keys())
+
+
+babel.init_app(app, locale_selector=get_locale)
+
+
+@app.context_processor
+def inject_locale():
+    return dict(get_locale=get_locale, languages=LANGUAGES, t=t)
+
+
+# ═══════════════════════════════════════════════════════
 #  LOGIN MANAGER
 # ═══════════════════════════════════════════════════════
 
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "auth.login"
+login_manager.login_message = "Connectez-vous pour accéder à cette page."
 
 
 @login_manager.user_loader
@@ -54,6 +168,14 @@ app.register_blueprint(auth)
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/set_language/<lang>")
+def set_language(lang):
+    """تغيير اللغة"""
+    if lang in LANGUAGES:
+        session["language"] = lang
+    return redirect(request.referrer or url_for("index"))
 
 
 @app.route("/api/prices")
@@ -81,6 +203,26 @@ def api_prices():
 @app.route("/api/history/<crypto_id>")
 def api_history(crypto_id):
     """API: تاريخ السعر (7 أيام)"""
+    cache_file = "cache_history.json"
+    cache_duration = 3600  # ساعة
+    
+    # 1. جرب Cache
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+            entry = cache.get(crypto_id)
+            if entry and (time.time() - entry["timestamp"]) < cache_duration:
+                return jsonify({
+                    "crypto_id": crypto_id,
+                    "prices": entry["prices"],
+                    "timestamps": entry["timestamps"],
+                    "cached": True
+                })
+        except (json.JSONDecodeError, IOError):
+            pass
+    
+    # 2. Fetch من API
     try:
         url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}/market_chart"
         params = {"vs_currency": "usd", "days": 7}
@@ -91,13 +233,51 @@ def api_history(crypto_id):
         prices = [p[1] for p in data.get("prices", [])]
         timestamps = [p[0] for p in data.get("prices", [])]
         
+        # 3. حفظ في Cache
+        cache = {}
+        if os.path.exists(cache_file):
+            try:
+                with open(cache_file, "r", encoding="utf-8") as f:
+                    cache = json.load(f)
+            except (json.JSONDecodeError, IOError):
+                cache = {}
+        
+        cache[crypto_id] = {
+            "timestamp": time.time(),
+            "prices": prices,
+            "timestamps": timestamps
+        }
+        
+        try:
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(cache, f)
+        except IOError:
+            pass
+        
         return jsonify({
             "crypto_id": crypto_id,
             "prices": prices,
-            "timestamps": timestamps
+            "timestamps": timestamps,
+            "cached": False
         })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except requests.RequestException as e:
+        # 4. إذا 429، جرب Cache قديمة
+        if os.path.exists(cache_file):
+            try:
+                with open(cache_file, "r", encoding="utf-8") as f:
+                    cache = json.load(f)
+                entry = cache.get(crypto_id)
+                if entry:
+                    return jsonify({
+                        "crypto_id": crypto_id,
+                        "prices": entry["prices"],
+                        "timestamps": entry["timestamps"],
+                        "cached": True,
+                        "stale": True
+                    })
+            except (json.JSONDecodeError, IOError):
+                pass
+        return jsonify({"error": f"Erreur API: {str(e)}"}), 500
 
 
 @app.route("/api/chat", methods=["POST"])
@@ -120,6 +300,7 @@ def api_chat():
         "response": response
     })
 
+
 @app.route("/api/alerts/test", methods=["POST"])
 @login_required
 def api_alerts_test():
@@ -141,8 +322,10 @@ def api_alerts_test():
     
     return jsonify(result)
 
+
 @app.route("/api/search")
 def api_search():
+    """API: بحث"""
     query = request.args.get("q", "")
     if not query:
         return jsonify({"error": "Query vide"}), 400
@@ -159,6 +342,7 @@ def profile():
 @app.route("/watchlist")
 @login_required
 def watchlist():
+    """صفحة قائمة المراقبة"""
     items = WatchlistItem.query.filter_by(user_id=current_user.id).all()
     crypto_ids = [item.crypto_id for item in items]
     prices = {}
@@ -172,6 +356,7 @@ def watchlist():
 @app.route("/watchlist/add/<crypto_id>", methods=["POST"])
 @login_required
 def watchlist_add(crypto_id):
+    """إضافة عملة"""
     symbol = request.form.get("symbol", crypto_id[:3]).upper()
     
     existing = WatchlistItem.query.filter_by(
@@ -187,14 +372,15 @@ def watchlist_add(crypto_id):
         )
         db.session.add(item)
         db.session.commit()
-        return jsonify({"status": "added"})
+        return jsonify({"status": "added", "crypto_id": crypto_id})
     
-    return jsonify({"status": "exists"})
+    return jsonify({"status": "exists", "crypto_id": crypto_id})
 
 
 @app.route("/watchlist/remove/<crypto_id>", methods=["POST"])
 @login_required
 def watchlist_remove(crypto_id):
+    """حيّد عملة"""
     item = WatchlistItem.query.filter_by(
         user_id=current_user.id,
         crypto_id=crypto_id
@@ -203,9 +389,9 @@ def watchlist_remove(crypto_id):
     if item:
         db.session.delete(item)
         db.session.commit()
-        return jsonify({"status": "removed"})
+        return jsonify({"status": "removed", "crypto_id": crypto_id})
     
-    return jsonify({"status": "not_found"}), 404
+    return jsonify({"status": "not_found", "crypto_id": crypto_id}), 404
 
 
 # ═══════════════════════════════════════════════════════
