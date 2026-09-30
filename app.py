@@ -11,6 +11,7 @@ from auth import auth
 import main as cg
 from ai_chat import chat
 from scam_detector import enrich_with_risk
+from email_alerts import send_alert_email
 import requests
 import json
 import time
@@ -119,6 +120,26 @@ def api_chat():
         "response": response
     })
 
+@app.route("/api/alerts/test", methods=["POST"])
+@login_required
+def api_alerts_test():
+    """API: اختبار إرسال إيميل تنبيه"""
+    data = request.get_json()
+    crypto_symbol = data.get("crypto_symbol", "BTC")
+    current_price = data.get("current_price", 0)
+    condition = data.get("condition", "above")
+    target_price = data.get("target_price", 0)
+    
+    result = send_alert_email(
+        to_email=current_user.email,
+        username=current_user.username,
+        crypto_symbol=crypto_symbol,
+        current_price=current_price,
+        condition=condition,
+        target_price=target_price
+    )
+    
+    return jsonify(result)
 
 @app.route("/api/search")
 def api_search():
