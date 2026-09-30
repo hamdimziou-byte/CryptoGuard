@@ -7,7 +7,7 @@ from flask import Flask, render_template, jsonify, request, redirect, url_for, s
 from flask_login import LoginManager, current_user, login_required
 from flask_babel import Babel, gettext as _
 from datetime import datetime
-from models import db, User, WatchlistItem
+from models import db, User, WatchlistItem, PortfolioItem
 from auth import auth
 import main as cg
 from ai_chat import chat
@@ -378,6 +378,108 @@ def watchlist_add(crypto_id):
 
 
 @app.route("/watchlist/remove/<crypto_id>", methods=["POST"])
+# ═══════════════════════════════════════════════════════
+#  PORTFOLIO
+# ═══════════════════════════════════════════════════════
+
+@app.route("/portfolio")
+@login_required
+def portfolio():
+    """صفحة المحفظة"""
+    items = PortfolioItem.query.filter_by(user_id=current_user.id).all()
+    
+    # جلب الأسعار الحالية
+    crypto_ids = list(set([item.crypto_id for item in items]))
+    prices = {}
+    if crypto_ids:
+        data = cg.fetch_prices_robust(crypto_ids, "usd")
+        if data:
+            prices = {coin["id"]: coin["current_price"] for coin in data}
+    
+    # حساب القيمة الإجمالية والـP&L
+    total_value = 0
+    total_cost = 0
+    enriched_items = []
+    
+    for item in items:
+        current_price = prices.get(item.crypto_id, 0)
+        current_value = current_price * item.amount
+        cost = item.buy_price * item.amount
+        pnl = current_value - cost
+        pnl_percent = (pnl / cost * 100) if cost > 0 else 0
+        
+        total_value += current_value
+        total_cost += cost
+        
+        enriched_items.append({
+            "id": item.id,
+            "crypto_id": item.crypto_id,
+            "symbol": item.crypto_symbol,
+            "amount": item.amount,
+            "buy_price": item.buy_price,
+            "current_price": current_price,
+            "current_value": current_value,
+            "cost": cost,
+            "pnl": pnl,
+            "pnl_percent": pnl_percent,
+        })
+    
+    total_pnl = total_value - total_cost
+    total_pnl_percent = (total_pnl / total_cost * 100) if total_cost > 0 else 0
+    
+    return render_template(
+        "portfolio.html",
+        items=enriched_items,
+        total_value=total_value,
+        total_cost=total_cost,
+        total_pnl=total_pnl,
+        total_pnl_percent=total_pnl_percent
+    )
+
+
+@app.route("/portfolio/add", methods=["POST"])
+@login_required
+def portfolio_add():
+    """إضافة عملة للمحفظة"""
+    data = request.get_json()
+    
+    crypto_id = data.get("crypto_id", "").lower()
+    crypto_symbol = data.get("crypto_symbol", "").upper()
+    amount = float(data.get("amount", 0))
+    buy_price = float(data.get("buy_price", 0))
+    
+    if not crypto_id or amount <= 0 or buy_price <= 0:
+        return jsonify({"error": "Données invalides"}), 400
+    
+    item = PortfolioItem(
+        user_id=current_user.id,
+        crypto_id=crypto_id,
+        crypto_symbol=crypto_symbol,
+        amount=amount,
+        buy_price=buy_price
+    )
+    
+    db.session.add(item)
+    db.session.commit()
+    
+    return jsonify({"status": "added", "id": item.id})
+
+
+@app.route("/portfolio/remove/<int:item_id>", methods=["POST"])
+@login_required
+def portfolio_remove(item_id):
+    """حيّد عملة من المحفظة"""
+    item = PortfolioItem.query.filter_by(
+        id=item_id,
+        user_id=current_user.id
+    ).first()
+    
+    if item:
+        db.session.delete(item)
+        db.session.commit()
+        return jsonify({"status": "removed"})
+    
+    return jsonify({"status": "not_found"}), 404
 @login_required
 def watchlist_remove(crypto_id):
     """حيّد عملة"""

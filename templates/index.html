@@ -33,6 +33,7 @@
             <a href="#" onclick="toggleAlertForm(); return false;">🔔 {{ t('alertes') }}</a>
             {% if current_user.is_authenticated %}
                 <a href="/watchlist">⭐ Watchlist</a>
+                <a href="/portfolio">💼 Portfolio</a>
                 <span style="color:var(--accent-green);">👤 {{ current_user.username }}</span>
                 <a href="/profile">{{ t('profil') }}</a>
                 <a href="/logout" class="btn-secondary">{{ t('deconnexion') }}</a>

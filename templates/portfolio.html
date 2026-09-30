@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="{{ get_locale() }}" {% if get_locale() == 'ar' %}dir="rtl"{% endif %}>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💼 Portfolio - CryptoGuard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <a href="/" style="font-weight:bold; font-size:1.2em; color:var(--accent-blue); text-decoration:none;">
+            🛡️ CryptoGuard
+        </a>
+        <div class="navbar-links">
+            <a href="/">{{ t('accueil') }}</a>
+            <button onclick="toggleTheme()" id="theme-toggle" class="theme-btn">🌙</button>
+            <select onchange="window.location.href='/set_language/' + this.value" class="lang-selector">
+                {% for code, name in languages.items() %}
+                    <option value="{{ code }}" {% if get_locale() == code %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+            <a href="/portfolio">💼 Portfolio</a>
+            <a href="/watchlist">⭐ Watchlist</a>
+            <span style="color:var(--accent-green);">👤 {{ current_user.username }}</span>
+            <a href="/logout" class="btn-secondary">{{ t('deconnexion') }}</a>
+        </div>
+    </nav>
+
+    <header>
+        <h1>💼 Portfolio</h1>
+        <p>Suivi de vos investissements</p>
+    </header>
+
+    <!-- STATS -->
+    <div style="max-width:900px; margin:0 auto 30px; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:20px;">
+        <div style="background:var(--bg-secondary); padding:20px; border-radius:15px; text-align:center;">
+            <div style="color:var(--text-secondary); font-size:0.9em; text-transform:uppercase; letter-spacing:1px;">Valeur totale</div>
+            <div style="font-size:2em; color:var(--accent-blue); font-weight:bold; margin-top:10px;">${{ "%.2f"|format(total_value) }}</div>
+        </div>
+        
+        <div style="background:var(--bg-secondary); padding:20px; border-radius:15px; text-align:center;">
+            <div style="color:var(--text-secondary); font-size:0.9em; text-transform:uppercase; letter-spacing:1px;">Coût total</div>
+            <div style="font-size:2em; color:var(--text-primary); font-weight:bold; margin-top:10px;">${{ "%.2f"|format(total_cost) }}</div>
+        </div>
+        
+        <div style="background:var(--bg-secondary); padding:20px; border-radius:15px; text-align:center;">
+            <div style="color:var(--text-secondary); font-size:0.9em; text-transform:uppercase; letter-spacing:1px;">P&L</div>
+            <div style="font-size:2em; font-weight:bold; margin-top:10px; color:{{ '#a6e3a1' if total_pnl >= 0 else '#f38ba8' }};">
+                {{ '+' if total_pnl >= 0 else '' }}${{ "%.2f"|format(total_pnl) }}
+            </div>
+            <div style="font-size:1em; color:{{ '#a6e3a1' if total_pnl >= 0 else '#f38ba8' }};">
+                {{ '+' if total_pnl_percent >= 0 else '' }}{{ "%.2f"|format(total_pnl_percent) }}%
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD FORM -->
+    <div style="max-width:900px; margin:0 auto 20px; text-align:right;">
+        <button onclick="toggleAddForm()" class="btn-primary" style="padding:12px 25px; cursor:pointer; border:none; font-size:1em;">
+            ➕ Ajouter un actif
+        </button>
+    </div>
+
+    <!-- ADD MODAL -->
+    <div id="add-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:2000; justify-content:center; align-items:center;">
+        <div style="background:var(--bg-secondary); padding:30px; border-radius:15px; max-width:500px; width:90%;">
+            <h2 style="color:var(--accent-blue); margin-bottom:20px;">➕ Ajouter un actif</h2>
+            <form onsubmit="addPortfolio(event); return false;" style="display:flex; flex-direction:column; gap:15px;">
+                <label>Cryptomonnaie (ex: bitcoin, ethereum)</label>
+                <input type="text" id="p-crypto-id" placeholder="bitcoin" required style="padding:12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-primary);">
+
+                <label>Symbole (ex: BTC, ETH)</label>
+                <input type="text" id="p-crypto-symbol" placeholder="BTC" required style="padding:12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-primary);">
+
+                <label>Quantité</label>
+                <input type="number" step="0.00000001" id="p-amount" placeholder="0.5" required style="padding:12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-primary);">
+
+                <label>Prix d'achat ($)</label>
+                <input type="number" step="0.01" id="p-buy-price" placeholder="45000" required style="padding:12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-primary);">
+
+                <div style="display:flex; gap:10px;">
+                    <button type="submit" class="btn-primary" style="flex:1; padding:12px; cursor:pointer; border:none;">Ajouter</button>
+                    <button type="button" onclick="toggleAddForm()" class="btn-secondary" style="flex:1; padding:12px; cursor:pointer; border:none;">Annuler</button>
+                </div>
+                <div id="add-status" style="text-align:center; font-weight:600;"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABLE -->
+    {% if items %}
+    <table style="max-width:900px;">
+        <thead>
+            <tr>
+                <th>Symbole</th>
+                <th>Quantité</th>
+                <th>Prix achat</th>
+                <th>Prix actuel</th>
+                <th>Valeur</th>
+                <th>P&L</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td><strong>{{ item.symbol }}</strong></td>
+                <td>{{ item.amount }}</td>
+                <td>${{ "%.2f"|format(item.buy_price) }}</td>
+                <td>${{ "%.2f"|format(item.current_price) }}</td>
+                <td>${{ "%.2f"|format(item.current_value) }}</td>
+                <td style="color:{{ '#a6e3a1' if item.pnl >= 0 else '#f38ba8' }}; font-weight:bold;">
+                    {{ '+' if item.pnl >= 0 else '' }}${{ "%.2f"|format(item.pnl) }}
+                    ({{ '+' if item.pnl_percent >= 0 else '' }}{{ "%.2f"|format(item.pnl_percent) }}%)
+                </td>
+                <td>
+                    <button onclick="removePortfolio({{ item.id }})" class="btn-secondary" style="padding:8px 15px; cursor:pointer; border:none;">❌</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="max-width:600px; margin:40px auto; text-align:center; background:var(--bg-secondary); padding:40px; border-radius:15px;">
+        <h3 style="color:var(--accent-blue); margin-bottom:15px;">📭 Portfolio vide</h3>
+        <p style="color:var(--text-secondary); margin-bottom:20px;">Ajoutez votre premier actif pour commencer le suivi!</p>
+    </div>
+    {% endif %}
+
+    <script>
+        function toggleTheme() {
+            document.documentElement.classList.toggle('light-mode');
+            const isLight = document.documentElement.classList.contains('light-mode');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            document.getElementById('theme-toggle').textContent = isLight ? '☀️' : '🌙';
+        }
+
+        (function() {
+            const saved = localStorage.getItem('theme');
+            if (saved === 'light') {
+                document.documentElement.classList.add('light-mode');
+                const btn = document.getElementById('theme-toggle');
+                if (btn) btn.textContent = '☀️';
+            }
+        })();
+
+        function toggleAddForm() {
+            const modal = document.getElementById('add-modal');
+            modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        async function addPortfolio(event) {
+            event.preventDefault();
+            
+            const data = {
+                crypto_id: document.getElementById('p-crypto-id').value,
+                crypto_symbol: document.getElementById('p-crypto-symbol').value,
+                amount: parseFloat(document.getElementById('p-amount').value),
+                buy_price: parseFloat(document.getElementById('p-buy-price').value)
+            };
+            
+            const statusEl = document.getElementById('add-status');
+            statusEl.textContent = '⏳ Ajout...';
+            
+            try {
+                const response = await fetch('/portfolio/add', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    statusEl.textContent = '✅ Ajouté!';
+                    statusEl.style.color = 'var(--accent-green)';
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    statusEl.textContent = '❌ Erreur';
+                    statusEl.style.color = 'var(--accent-red)';
+                }
+            } catch (error) {
+                statusEl.textContent = '❌ ' + error.message;
+                statusEl.style.color = 'var(--accent-red)';
+            }
+        }
+
+        async function removePortfolio(id) {
+            if (!confirm('Retirer cet actif?')) return;
+            
+            try {
+                const response = await fetch('/portfolio/remove/' + id, {
+                    method: 'POST'
+                });
+                if (response.ok) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                alert('Erreur: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
