@@ -1,6 +1,6 @@
 """
 CryptoGuard Web App - Flask Backend
-Version: 2.7.0 - News Feed
+Version: 2.8.0 - Variable Period Chart
 """
 
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session
@@ -47,7 +47,7 @@ TRANSLATIONS = {
         "titre": "Surveillance des cryptomonnaies en temps réel", "top": "Top",
         "rafraichir": "Rafraîchir", "prix": "Prix", "symbole": "Symbole",
         "nom": "Nom", "marche": "Market Cap", "risque": "Risque",
-        "chart_titre": "BTC - 7 derniers jours", "creer_alerte": "Créer une alerte",
+        "chart_titre": "7 derniers jours", "creer_alerte": "Créer une alerte",
         "cryptomonnaie": "Cryptomonnaie", "condition": "Condition",
         "prix_cible": "Prix cible", "prix_actuel": "Prix actuel",
         "envoyer_alerte": "Envoyer l'alerte", "chat_placeholder": "Posez votre question...",
@@ -60,7 +60,7 @@ TRANSLATIONS = {
         "titre": "Real-time cryptocurrency monitoring", "top": "Top",
         "rafraichir": "Refresh", "prix": "Price", "symbole": "Symbol",
         "nom": "Name", "marche": "Market Cap", "risque": "Risk",
-        "chart_titre": "BTC - Last 7 days", "creer_alerte": "Create an alert",
+        "chart_titre": "Last 7 days", "creer_alerte": "Create an alert",
         "cryptomonnaie": "Cryptocurrency", "condition": "Condition",
         "prix_cible": "Target price", "prix_actuel": "Current price",
         "envoyer_alerte": "Send alert", "chat_placeholder": "Ask your question...",
@@ -73,7 +73,7 @@ TRANSLATIONS = {
         "titre": "مراقبة العملات الرقمية في الوقت الحقيقي", "top": "الأعلى",
         "rafraichir": "تحديث", "prix": "السعر", "symbole": "الرمز",
         "nom": "الاسم", "marche": "القيمة السوقية", "risque": "المخاطر",
-        "chart_titre": "BTC - آخر 7 أيام", "creer_alerte": "إنشاء تنبيه",
+        "chart_titre": "آخر 7 أيام", "creer_alerte": "إنشاء تنبيه",
         "cryptomonnaie": "العملة الرقمية", "condition": "الشرط",
         "prix_cible": "السعر المستهدف", "prix_actuel": "السعر الحالي",
         "envoyer_alerte": "إرسال التنبيه", "chat_placeholder": "اطرح سؤالك...",
@@ -81,8 +81,6 @@ TRANSLATIONS = {
         "lire_suite": "اقرأ المزيد",
     },
 }
-
-app.config["BABEL_DEFAULT_LOCALE"] = "fr"
 
 
 def get_locale():
@@ -152,27 +150,47 @@ def api_prices():
 
 @app.route("/api/history/<crypto_id>")
 def api_history(crypto_id):
+    """API: تاريخ السعر (period variable)"""
+    days = request.args.get("days", 7, type=int)
+    
+    allowed_days = [1, 7, 30, 90, 365]
+    if days not in allowed_days:
+        days = 7
+    
     cache_file = "cache_history.json"
     cache_duration = 3600
+    cache_key = f"{crypto_id}_{days}"
     
+    # 1. جرب Cache
     if os.path.exists(cache_file):
         try:
             with open(cache_file, "r", encoding="utf-8") as f:
                 cache = json.load(f)
-            entry = cache.get(crypto_id)
+            entry = cache.get(cache_key)
             if entry and (time.time() - entry["timestamp"]) < cache_duration:
-                return jsonify({"crypto_id": crypto_id, "prices": entry["prices"], "timestamps": entry["timestamps"], "cached": True})
+                return jsonify({
+                    "crypto_id": crypto_id,
+                    "days": days,
+                    "prices": entry["prices"],
+                    "timestamps": entry["timestamps"],
+                    "cached": True
+                })
         except (json.JSONDecodeError, IOError):
             pass
     
+    # 2. Fetch من API
     try:
         url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}/market_chart"
-        response = requests.get(url, params={"vs_currency": "usd", "days": 7}, timeout=10)
+        params = {"vs_currency": "usd", "days": days}
+        
+        response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         data = response.json()
+        
         prices = [p[1] for p in data.get("prices", [])]
         timestamps = [p[0] for p in data.get("prices", [])]
         
+        # 3. حفظ في Cache
         cache = {}
         if os.path.exists(cache_file):
             try:
@@ -181,22 +199,40 @@ def api_history(crypto_id):
             except (json.JSONDecodeError, IOError):
                 cache = {}
         
-        cache[crypto_id] = {"timestamp": time.time(), "prices": prices, "timestamps": timestamps}
+        cache[cache_key] = {
+            "timestamp": time.time(),
+            "prices": prices,
+            "timestamps": timestamps
+        }
+        
         try:
             with open(cache_file, "w", encoding="utf-8") as f:
                 json.dump(cache, f)
         except IOError:
             pass
         
-        return jsonify({"crypto_id": crypto_id, "prices": prices, "timestamps": timestamps, "cached": False})
+        return jsonify({
+            "crypto_id": crypto_id,
+            "days": days,
+            "prices": prices,
+            "timestamps": timestamps,
+            "cached": False
+        })
     except requests.RequestException as e:
         if os.path.exists(cache_file):
             try:
                 with open(cache_file, "r", encoding="utf-8") as f:
                     cache = json.load(f)
-                entry = cache.get(crypto_id)
+                entry = cache.get(cache_key)
                 if entry:
-                    return jsonify({"crypto_id": crypto_id, "prices": entry["prices"], "timestamps": entry["timestamps"], "cached": True, "stale": True})
+                    return jsonify({
+                        "crypto_id": crypto_id,
+                        "days": days,
+                        "prices": entry["prices"],
+                        "timestamps": entry["timestamps"],
+                        "cached": True,
+                        "stale": True
+                    })
             except (json.JSONDecodeError, IOError):
                 pass
         return jsonify({"error": f"Erreur API: {str(e)}"}), 500
@@ -228,12 +264,10 @@ def api_news():
                 description = item.find("description")
                 enclosure = item.find("enclosure")
                 
-                # صورة
                 image = ""
                 if enclosure is not None:
                     image = enclosure.get("url", "")
                 
-                # تاريخ
                 published = 0
                 if pub_date is not None and pub_date.text:
                     try:
@@ -259,15 +293,19 @@ def api_news():
             continue
     
     return jsonify({"error": "Impossible de charger les news"}), 500
+
+
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
     data = request.get_json()
     message = data.get("message", "").strip()
     if not message:
         return jsonify({"error": "Message vide"}), 400
+    
     crypto_data = cg.get_top_cryptos(10, "usd")
     if not crypto_data:
         crypto_data = cg.fetch_prices_robust(cg.CRYPTOS[:10], "usd")
+    
     response = chat(message, crypto_data)
     return jsonify({"message": message, "response": response})
 

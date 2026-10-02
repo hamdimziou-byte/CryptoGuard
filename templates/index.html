@@ -14,6 +14,7 @@
     </script>
 </head>
 <body>
+    <!-- ═══ NAVBAR ═══ -->
     <nav class="navbar">
         <a href="/" style="font-weight:bold; font-size:1.2em; color:var(--accent-blue); text-decoration:none;">🛡️ CryptoGuard</a>
         <div class="navbar-links">
@@ -38,16 +39,47 @@
         </div>
     </nav>
 
+    <!-- ═══ HEADER ═══ -->
     <header>
         <h1>🛡️ CryptoGuard</h1>
         <p>{{ t('titre') }}</p>
     </header>
 
+    <!-- ═══ CHART ═══ -->
     <div class="chart-container">
-        <h2>{{ t('chart_titre') }}</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+            <h2 id="chart-title" style="margin:0;">📊 Bitcoin - 7 derniers jours</h2>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <select id="chart-crypto" class="chart-selector">
+                    <option value="bitcoin" data-symbol="BTC">Bitcoin (BTC)</option>
+                    <option value="ethereum" data-symbol="ETH">Ethereum (ETH)</option>
+                    <option value="binancecoin" data-symbol="BNB">BNB</option>
+                    <option value="solana" data-symbol="SOL">Solana (SOL)</option>
+                    <option value="ripple" data-symbol="XRP">XRP</option>
+                    <option value="cardano" data-symbol="ADA">Cardano (ADA)</option>
+                    <option value="dogecoin" data-symbol="DOGE">Dogecoin (DOGE)</option>
+                    <option value="tron" data-symbol="TRX">TRON (TRX)</option>
+                    <option value="polkadot" data-symbol="DOT">Polkadot (DOT)</option>
+                    <option value="chainlink" data-symbol="LINK">Chainlink (LINK)</option>
+                    <option value="matic-network" data-symbol="MATIC">Polygon (MATIC)</option>
+                    <option value="avalanche-2" data-symbol="AVAX">Avalanche (AVAX)</option>
+                    <option value="litecoin" data-symbol="LTC">Litecoin (LTC)</option>
+                    <option value="uniswap" data-symbol="UNI">Uniswap (UNI)</option>
+                    <option value="stellar" data-symbol="XLM">Stellar (XLM)</option>
+                </select>
+                <select id="chart-period" class="chart-selector">
+                    <option value="1">24 heures</option>
+                    <option value="7" selected>7 jours</option>
+                    <option value="30">30 jours</option>
+                    <option value="90">3 mois</option>
+                    <option value="365">1 an</option>
+                </select>
+            </div>
+        </div>
         <canvas id="price-chart"></canvas>
     </div>
 
+    <!-- ═══ CONTROLS ═══ -->
     <div class="controls">
         <select id="limit">
             <option value="10">{{ t('top') }} 10</option>
@@ -65,14 +97,7 @@
     <div id="loading" class="loading">⏳ ...</div>
     <div id="error" class="error" style="display:none;"></div>
 
-    <!-- NEWS FEED -->
-    <div class="news-section">
-        <h2>📰 {{ t('actualites') }}</h2>
-        <div id="news-container" class="news-grid">
-            <div class="loading">⏳ ...</div>
-        </div>
-    </div>
-
+    <!-- ═══ TABLE ═══ -->
     <table id="prices-table">
         <thead>
             <tr>
@@ -89,10 +114,19 @@
         <tbody id="prices-body"></tbody>
     </table>
 
+    <!-- ═══ NEWS FEED ═══ -->
+    <div class="news-section">
+        <h2>📰 {{ t('actualites') }}</h2>
+        <div id="news-container" class="news-grid">
+            <div class="loading">⏳ ...</div>
+        </div>
+    </div>
+
     <footer>
         <p>Powered by CoinGecko • Binance • CoinPaprika • CryptoCompare</p>
     </footer>
 
+    <!-- ═══ AI CHAT ═══ -->
     <div id="chat-box" class="chat-box">
         <div class="chat-header">
             <strong>💬 CryptoGuard AI</strong>
@@ -100,11 +134,13 @@
         </div>
         <div id="chat-messages" class="chat-messages"></div>
         <div class="chat-input-container">
-            <input type="text" id="chat-input" placeholder="{{ t('chat_placeholder') }}" onkeypress="if(event.key==='Enter') sendMessage()">
+            <input type="text" id="chat-input" placeholder="{{ t('chat_placeholder') }}"
+                   onkeypress="if(event.key==='Enter') sendMessage()">
             <button onclick="sendMessage()">{{ t('envoyer') }}</button>
         </div>
     </div>
 
+    <!-- ═══ ALERT MODAL ═══ -->
     <div id="alert-modal" class="alert-modal">
         <div class="alert-modal-content">
             <button onclick="toggleAlertForm()" class="alert-modal-close">×</button>
@@ -134,12 +170,16 @@
     </div>
 
     <script>
+        // ═══════════════════════════════════════════════════════
+        //  THEME TOGGLE
+        // ═══════════════════════════════════════════════════════
         function toggleTheme() {
             document.documentElement.classList.toggle('light-mode');
             const isLight = document.documentElement.classList.contains('light-mode');
             localStorage.setItem('theme', isLight ? 'light' : 'dark');
             document.getElementById('theme-toggle').textContent = isLight ? '☀️' : '🌙';
         }
+
         (function() {
             const saved = localStorage.getItem('theme');
             if (saved === 'light') {
@@ -148,10 +188,112 @@
             }
         })();
 
+        // ═══════════════════════════════════════════════════════
+        //  CHART
+        // ═══════════════════════════════════════════════════════
+        var priceChart = null;
+
+        async function loadChart(cryptoId) {
+            if (!cryptoId) {
+                cryptoId = document.getElementById('chart-crypto').value;
+            }
+            
+            const period = document.getElementById('chart-period').value;
+            
+            const selector = document.getElementById('chart-crypto');
+            const selectedOption = selector.options[selector.selectedIndex];
+            const symbol = selectedOption.getAttribute('data-symbol') || 'BTC';
+            const name = selectedOption.textContent.split(' (')[0];
+            
+            const periodTexts = {
+                '1': '24 heures',
+                '7': '7 derniers jours',
+                '30': '30 derniers jours',
+                '90': '3 derniers mois',
+                '365': 'dernière année'
+            };
+            const periodText = periodTexts[period] || '7 derniers jours';
+            
+            document.getElementById('chart-title').textContent = '📊 ' + name + ' - ' + periodText;
+            
+            try {
+                const response = await fetch('/api/history/' + cryptoId + '?days=' + period);
+                const data = await response.json();
+                
+                if (data.error) {
+                    console.error('Chart error:', data.error);
+                    return;
+                }
+                
+                const ctx = document.getElementById('price-chart').getContext('2d');
+                if (priceChart) priceChart.destroy();
+                
+                const labels = data.timestamps.map(function(ts) {
+                    const d = new Date(ts);
+                    if (period === '1') {
+                        return d.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+                    } else if (period === '7' || period === '30') {
+                        return d.toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit'});
+                    } else if (period === '90') {
+                        return d.toLocaleDateString('fr-FR', {day: '2-digit', month: 'short'});
+                    } else {
+                        return d.toLocaleDateString('fr-FR', {month: 'short', year: 'numeric'});
+                    }
+                });
+                
+                priceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: symbol + ' (USD)',
+                            data: data.prices,
+                            borderColor: '#89b4fa',
+                            backgroundColor: 'rgba(137, 180, 250, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 0,
+                            pointHoverRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return '$' + context.parsed.y.toLocaleString('fr-FR', {minimumFractionDigits: 2});
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toLocaleString('fr-FR');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Chart error:', error);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        //  AI CHAT
+        // ═══════════════════════════════════════════════════════
         function toggleChat() {
             const b = document.getElementById('chat-box');
             b.style.display = b.style.display === 'flex' ? 'none' : 'flex';
         }
+
         function addChatMessage(text, isUser) {
             const m = document.getElementById('chat-messages');
             const d = document.createElement('div');
@@ -160,19 +302,27 @@
             m.appendChild(d);
             m.scrollTop = m.scrollHeight;
         }
+
         async function sendMessage() {
             const input = document.getElementById('chat-input');
             const msg = input.value.trim();
             if (!msg) return;
+            
             addChatMessage(msg, true);
             input.value = '';
+            
             const l = document.createElement('div');
             l.id = 'chat-loading';
             l.className = 'chat-message ai';
             l.textContent = '⏳ ...';
             document.getElementById('chat-messages').appendChild(l);
+            
             try {
-                const r = await fetch('/api/chat', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({message: msg})});
+                const r = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message: msg})
+                });
                 const d = await r.json();
                 document.getElementById('chat-loading').remove();
                 addChatMessage(d.response || 'Erreur', false);
@@ -182,15 +332,20 @@
             }
         }
 
+        // ═══════════════════════════════════════════════════════
+        //  ALERT FORM
+        // ═══════════════════════════════════════════════════════
         function toggleAlertForm() {
             const m = document.getElementById('alert-modal');
             m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
         }
+
         async function sendAlert(e) {
             e.preventDefault();
             const status = document.getElementById('alert-status');
             status.textContent = '⏳ ...';
             status.style.color = 'var(--accent-yellow)';
+            
             try {
                 const r = await fetch('/api/alerts/test', {
                     method: 'POST',
@@ -217,8 +372,13 @@
             }
         }
 
+        // ═══════════════════════════════════════════════════════
+        //  PRICES TABLE
+        // ═══════════════════════════════════════════════════════
         async function loadPrices() {
             document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            
             try {
                 const r = await fetch('/api/prices?limit=' + document.getElementById('limit').value + '&currency=' + document.getElementById('currency').value);
                 const d = await r.json();
@@ -230,17 +390,21 @@
                 document.getElementById('loading').style.display = 'none';
             }
         }
+
         function renderTable(data, currency) {
             const tbody = document.getElementById('prices-body');
             tbody.innerHTML = '';
+            
             data.forEach(function(coin, i) {
                 const ch = coin.price_change_percentage_24h || 0;
                 const cc = ch >= 0 ? 'positive' : 'negative';
                 const ar = ch >= 0 ? '▲' : '▼';
                 const sym = currency === 'USD' ? '$' : '€';
+                
                 let rc = '#a6e3a1';
                 if (coin.risk_color === 'DANGER') rc = '#f38ba8';
                 else if (coin.risk_color === 'WARN') rc = '#f9e2af';
+                
                 let r = '<tr>';
                 r += '<td>' + (i + 1) + '</td>';
                 r += '<td><strong>' + coin.symbol.toUpperCase() + '</strong></td>';
@@ -254,20 +418,40 @@
                 tbody.innerHTML += r;
             });
         }
+
+        // ═══════════════════════════════════════════════════════
+        //  WATCHLIST
+        // ═══════════════════════════════════════════════════════
         async function addToWatchlist(id, sym) {
             try {
-                const r = await fetch('/watchlist/add/' + id, {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: 'symbol=' + sym});
-                if (r.ok) alert('⭐ ' + sym.toUpperCase() + ' ajouté!');
-                else { alert('Connectez-vous'); window.location.href = '/login'; }
-            } catch (e) { alert('Erreur'); }
+                const r = await fetch('/watchlist/add/' + id, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: 'symbol=' + sym
+                });
+                if (r.ok) {
+                    alert('⭐ ' + sym.toUpperCase() + ' ajouté!');
+                } else {
+                    alert('Connectez-vous');
+                    window.location.href = '/login';
+                }
+            } catch (e) {
+                alert('Erreur');
+            }
         }
 
+        // ═══════════════════════════════════════════════════════
+        //  NEWS FEED
+        // ═══════════════════════════════════════════════════════
         async function loadNews() {
             const c = document.getElementById('news-container');
             try {
                 const r = await fetch('/api/news');
                 const d = await r.json();
-                if (d.error || !d.news) { c.innerHTML = '<div class="error">❌</div>'; return; }
+                if (d.error || !d.news) {
+                    c.innerHTML = '<div class="error">❌</div>';
+                    return;
+                }
                 c.innerHTML = '';
                 d.news.forEach(function(a) {
                     const date = new Date(a.published * 1000).toLocaleDateString('fr-FR', {day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'});
@@ -282,34 +466,28 @@
                         '</div>';
                     c.appendChild(card);
                 });
-            } catch (e) { c.innerHTML = '<div class="error">❌</div>'; }
+            } catch (e) {
+                c.innerHTML = '<div class="error">❌</div>';
+            }
         }
 
-        let priceChart = null;
-        async function loadChart() {
-            try {
-                const r = await fetch('/api/history/bitcoin');
-                const d = await r.json();
-                if (d.error) return;
-                const ctx = document.getElementById('price-chart').getContext('2d');
-                if (priceChart) priceChart.destroy();
-                priceChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: d.timestamps.map(ts => new Date(ts).toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit'})),
-                        datasets: [{label: 'BTC (USD)', data: d.prices, borderColor: '#89b4fa', backgroundColor: 'rgba(137, 180, 250, 0.1)', borderWidth: 2, fill: true, tension: 0.3, pointRadius: 0}]
-                    },
-                    options: {responsive: true, maintainAspectRatio: false, plugins: {legend: {display: false}}}
-                });
-            } catch (e) { console.error(e); }
-        }
-
+        // ═══════════════════════════════════════════════════════
+        //  INIT
+        // ═══════════════════════════════════════════════════════
         document.getElementById('refresh').addEventListener('click', loadPrices);
         document.getElementById('limit').addEventListener('change', loadPrices);
         document.getElementById('currency').addEventListener('change', loadPrices);
+        
+        document.getElementById('chart-crypto').addEventListener('change', function() {
+            loadChart(this.value);
+        });
+        
+        document.getElementById('chart-period').addEventListener('change', function() {
+            loadChart();
+        });
 
         loadPrices();
-        loadChart();
+        loadChart('bitcoin');
         loadNews();
         setInterval(loadPrices, 60000);
         setInterval(loadNews, 300000);
