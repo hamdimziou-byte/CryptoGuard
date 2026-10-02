@@ -18,23 +18,23 @@
     <nav class="navbar">
         <a href="/" style="font-weight:bold; font-size:1.2em; color:var(--accent-blue); text-decoration:none;">🛡️ CryptoGuard</a>
         <div class="navbar-links">
-            <a href="/">{{ t('accueil') }}</a>
+            <a href="/">{{ t('home') }}</a>
             <button onclick="toggleTheme()" id="theme-toggle" class="theme-btn">🌙</button>
             <select onchange="window.location.href='/set_language/' + this.value" class="lang-selector">
                 {% for code, name in languages.items() %}
                     <option value="{{ code }}" {% if get_locale() == code %}selected{% endif %}>{{ name }}</option>
                 {% endfor %}
             </select>
-            <a href="#" onclick="toggleChat(); return false;">💬 AI Chat</a>
-            <a href="#" onclick="toggleAlertForm(); return false;">🔔 {{ t('alertes') }}</a>
+            <a href="#" onclick="toggleChat(); return false;">💬 {{ t('ai_chat') }}</a>
+            <a href="#" onclick="toggleAlertForm(); return false;">🔔 {{ t('alerts') }}</a>
             {% if current_user.is_authenticated %}
-                <a href="/portfolio">💼 Portfolio</a>
-                <a href="/watchlist">⭐ Watchlist</a>
+                <a href="/portfolio">💼 {{ t('portfolio') }}</a>
+                <a href="/watchlist">⭐ {{ t('watchlist') }}</a>
                 <span style="color:var(--accent-green);">👤 {{ current_user.username }}</span>
-                <a href="/logout" class="btn-secondary">{{ t('deconnexion') }}</a>
+                <a href="/logout" class="btn-secondary">{{ t('logout') }}</a>
             {% else %}
-                <a href="/login">{{ t('connexion') }}</a>
-                <a href="/register" class="btn-primary">{{ t('inscription') }}</a>
+                <a href="/login">{{ t('login') }}</a>
+                <a href="/register" class="btn-primary">{{ t('register') }}</a>
             {% endif %}
         </div>
     </nav>
@@ -42,13 +42,13 @@
     <!-- ═══ HEADER ═══ -->
     <header>
         <h1>🛡️ CryptoGuard</h1>
-        <p>{{ t('titre') }}</p>
+        <p>{{ t('title') }}</p>
     </header>
 
     <!-- ═══ CHART ═══ -->
     <div class="chart-container">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
-            <h2 id="chart-title" style="margin:0;">📊 Bitcoin - 7 derniers jours</h2>
+            <h2 id="chart-title" style="margin:0;">📊 Bitcoin - {{ t('days_7') }}</h2>
             <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                 <select id="chart-crypto" class="chart-selector">
                     <option value="bitcoin" data-symbol="BTC">Bitcoin (BTC)</option>
@@ -68,15 +68,27 @@
                     <option value="stellar" data-symbol="XLM">Stellar (XLM)</option>
                 </select>
                 <select id="chart-period" class="chart-selector">
-                    <option value="1">24 heures</option>
-                    <option value="7" selected>7 jours</option>
-                    <option value="30">30 jours</option>
-                    <option value="90">3 mois</option>
-                    <option value="365">1 an</option>
+                    <option value="1">{{ t('hours_24') }}</option>
+                    <option value="7" selected>{{ t('days_7') }}</option>
+                    <option value="30">{{ t('days_30') }}</option>
+                    <option value="90">{{ t('months_3') }}</option>
+                    <option value="365">{{ t('year_1') }}</option>
                 </select>
             </div>
         </div>
         <canvas id="price-chart"></canvas>
+    </div>
+
+    <!-- ═══ TOP MOVERS ═══ -->
+    <div class="top-movers-section">
+        <div class="movers-column">
+            <h2 class="movers-title gainers-title">🚀 {{ t('top_gainers') }}</h2>
+            <div id="gainers-list" class="movers-list"><div class="loading">⏳ ...</div></div>
+        </div>
+        <div class="movers-column">
+            <h2 class="movers-title losers-title">📉 {{ t('top_losers') }}</h2>
+            <div id="losers-list" class="movers-list"><div class="loading">⏳ ...</div></div>
+        </div>
     </div>
 
     <!-- ═══ CONTROLS ═══ -->
@@ -91,7 +103,8 @@
             <option value="usd" selected>USD ($)</option>
             <option value="eur">EUR (€)</option>
         </select>
-        <button id="refresh">🔄 {{ t('rafraichir') }}</button>
+        <button id="refresh">🔄 {{ t('refresh') }}</button>
+        <button id="export-csv" style="background:var(--accent-blue); color:#1e1e2e;">📄 {{ t('export_csv') }}</button>
     </div>
 
     <div id="loading" class="loading">⏳ ...</div>
@@ -102,29 +115,25 @@
         <thead>
             <tr>
                 <th>#</th>
-                <th>{{ t('symbole') }}</th>
-                <th>{{ t('nom') }}</th>
-                <th>{{ t('prix') }}</th>
+                <th>{{ t('symbol') }}</th>
+                <th>{{ t('name') }}</th>
+                <th>{{ t('price') }}</th>
                 <th>24h</th>
-                <th>{{ t('marche') }}</th>
-                <th>{{ t('risque') }}</th>
+                <th>{{ t('market_cap') }}</th>
+                <th>{{ t('risk') }}</th>
                 <th>⭐</th>
             </tr>
         </thead>
         <tbody id="prices-body"></tbody>
     </table>
 
-    <!-- ═══ NEWS FEED ═══ -->
+    <!-- ═══ NEWS ═══ -->
     <div class="news-section">
-        <h2>📰 {{ t('actualites') }}</h2>
-        <div id="news-container" class="news-grid">
-            <div class="loading">⏳ ...</div>
-        </div>
+        <h2>📰 {{ t('news') }}</h2>
+        <div id="news-container" class="news-grid"><div class="loading">⏳ ...</div></div>
     </div>
 
-    <footer>
-        <p>Powered by CoinGecko • Binance • CoinPaprika • CryptoCompare</p>
-    </footer>
+    <footer><p>Powered by CoinGecko • Binance • CoinPaprika • CryptoCompare</p></footer>
 
     <!-- ═══ AI CHAT ═══ -->
     <div id="chat-box" class="chat-box">
@@ -134,9 +143,8 @@
         </div>
         <div id="chat-messages" class="chat-messages"></div>
         <div class="chat-input-container">
-            <input type="text" id="chat-input" placeholder="{{ t('chat_placeholder') }}"
-                   onkeypress="if(event.key==='Enter') sendMessage()">
-            <button onclick="sendMessage()">{{ t('envoyer') }}</button>
+            <input type="text" id="chat-input" placeholder="{{ t('chat_placeholder') }}" onkeypress="if(event.key==='Enter') sendMessage()">
+            <button onclick="sendMessage()">{{ t('send') }}</button>
         </div>
     </div>
 
@@ -144,9 +152,9 @@
     <div id="alert-modal" class="alert-modal">
         <div class="alert-modal-content">
             <button onclick="toggleAlertForm()" class="alert-modal-close">×</button>
-            <h2>🔔 {{ t('creer_alerte') }}</h2>
+            <h2>🔔 {{ t('create_alert') }}</h2>
             <form onsubmit="sendAlert(event); return false;" class="alert-form">
-                <label>{{ t('cryptomonnaie') }}</label>
+                <label>{{ t('crypto') }}</label>
                 <select id="alert-crypto">
                     <option value="BTC">Bitcoin (BTC)</option>
                     <option value="ETH">Ethereum (ETH)</option>
@@ -159,17 +167,53 @@
                     <option value="above">⬆️ Above</option>
                     <option value="below">⬇️ Below</option>
                 </select>
-                <label>{{ t('prix_cible') }} ($)</label>
+                <label>{{ t('target_price') }} ($)</label>
                 <input type="number" id="alert-price" placeholder="100000" required>
-                <label>{{ t('prix_actuel') }} ($)</label>
+                <label>{{ t('current_price') }} ($)</label>
                 <input type="number" id="alert-current" placeholder="83000" required>
-                <button type="submit" class="btn-send-alert">📧 {{ t('envoyer_alerte') }}</button>
+                <button type="submit" class="btn-send-alert">📧 {{ t('send_alert') }}</button>
                 <div id="alert-status" class="alert-status"></div>
             </form>
         </div>
     </div>
 
+    <!-- ═══ CRYPTO DETAILS MODAL ═══ -->
+    <div id="crypto-modal" class="crypto-modal">
+        <div class="crypto-modal-content">
+            <button onclick="closeCryptoModal()" class="crypto-modal-close">×</button>
+            <div id="crypto-modal-body"><div class="loading">⏳ {{ t('loading') }}...</div></div>
+        </div>
+    </div>
+
     <script>
+        // ═══════════════════════════════════════════════════════
+        //  TRANSLATIONS (from server)
+        // ═══════════════════════════════════════════════════════
+        var T = {
+            description: "{{ t('description') }}",
+            market_data: "{{ t('market_data') }}",
+            where_to_buy: "{{ t('where_to_buy') }}",
+            useful_links: "{{ t('useful_links') }}",
+            website: "{{ t('website') }}",
+            whitepaper: "{{ t('whitepaper') }}",
+            twitter: "{{ t('twitter') }}",
+            reddit: "{{ t('reddit') }}",
+            explorer: "{{ t('explorer') }}",
+            created_on: "{{ t('created_on') }}",
+            volume_24h: "{{ t('volume_24h') }}",
+            circulating: "{{ t('circulating') }}",
+            max_supply: "{{ t('max_supply') }}",
+            read_more: "{{ t('read_more') }}",
+            loading: "{{ t('loading') }}",
+            hours_24: "{{ t('hours_24') }}",
+            days_7: "{{ t('days_7') }}",
+            days_30: "{{ t('days_30') }}",
+            months_3: "{{ t('months_3') }}",
+            year_1: "{{ t('year_1') }}",
+            alert_sent: "{{ t('alert_sent') }}",
+            thinking: "{{ t('thinking') }}"
+        };
+
         // ═══════════════════════════════════════════════════════
         //  THEME TOGGLE
         // ═══════════════════════════════════════════════════════
@@ -179,7 +223,6 @@
             localStorage.setItem('theme', isLight ? 'light' : 'dark');
             document.getElementById('theme-toggle').textContent = isLight ? '☀️' : '🌙';
         }
-
         (function() {
             const saved = localStorage.getItem('theme');
             if (saved === 'light') {
@@ -192,108 +235,125 @@
         //  CHART
         // ═══════════════════════════════════════════════════════
         var priceChart = null;
-
         async function loadChart(cryptoId) {
-            if (!cryptoId) {
-                cryptoId = document.getElementById('chart-crypto').value;
-            }
-            
+            if (!cryptoId) cryptoId = document.getElementById('chart-crypto').value;
             const period = document.getElementById('chart-period').value;
-            
             const selector = document.getElementById('chart-crypto');
             const selectedOption = selector.options[selector.selectedIndex];
             const symbol = selectedOption.getAttribute('data-symbol') || 'BTC';
             const name = selectedOption.textContent.split(' (')[0];
-            
-            const periodTexts = {
-                '1': '24 heures',
-                '7': '7 derniers jours',
-                '30': '30 derniers jours',
-                '90': '3 derniers mois',
-                '365': 'dernière année'
-            };
-            const periodText = periodTexts[period] || '7 derniers jours';
-            
-            document.getElementById('chart-title').textContent = '📊 ' + name + ' - ' + periodText;
-            
+            const periodTexts = {'1': T.hours_24, '7': T.days_7, '30': T.days_30, '90': T.months_3, '365': T.year_1};
+            document.getElementById('chart-title').textContent = '📊 ' + name + ' - ' + (periodTexts[period] || T.days_7);
             try {
                 const response = await fetch('/api/history/' + cryptoId + '?days=' + period);
                 const data = await response.json();
-                
-                if (data.error) {
-                    console.error('Chart error:', data.error);
-                    return;
-                }
-                
+                if (data.error) { console.error('Chart error:', data.error); return; }
                 const ctx = document.getElementById('price-chart').getContext('2d');
                 if (priceChart) priceChart.destroy();
-                
                 const labels = data.timestamps.map(function(ts) {
                     const d = new Date(ts);
-                    if (period === '1') {
-                        return d.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
-                    } else if (period === '7' || period === '30') {
-                        return d.toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit'});
-                    } else if (period === '90') {
-                        return d.toLocaleDateString('fr-FR', {day: '2-digit', month: 'short'});
-                    } else {
-                        return d.toLocaleDateString('fr-FR', {month: 'short', year: 'numeric'});
-                    }
+                    if (period === '1') return d.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+                    else if (period === '7' || period === '30') return d.toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit'});
+                    else if (period === '90') return d.toLocaleDateString('fr-FR', {day: '2-digit', month: 'short'});
+                    else return d.toLocaleDateString('fr-FR', {month: 'short', year: 'numeric'});
                 });
-                
                 priceChart = new Chart(ctx, {
                     type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: symbol + ' (USD)',
-                            data: data.prices,
-                            borderColor: '#89b4fa',
-                            backgroundColor: 'rgba(137, 180, 250, 0.1)',
-                            borderWidth: 2,
-                            fill: true,
-                            tension: 0.3,
-                            pointRadius: 0,
-                            pointHoverRadius: 5
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return '$' + context.parsed.y.toLocaleString('fr-FR', {minimumFractionDigits: 2});
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                ticks: {
-                                    callback: function(value) {
-                                        return '$' + value.toLocaleString('fr-FR');
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    data: { labels: labels, datasets: [{ label: symbol + ' (USD)', data: data.prices, borderColor: '#89b4fa', backgroundColor: 'rgba(137, 180, 250, 0.1)', borderWidth: 2, fill: true, tension: 0.3, pointRadius: 0, pointHoverRadius: 5 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
                 });
-            } catch (error) {
-                console.error('Chart error:', error);
-            }
+            } catch (error) { console.error('Chart error:', error); }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        //  TOP MOVERS
+        // ═══════════════════════════════════════════════════════
+        async function loadTopMovers() {
+            var g = document.getElementById('gainers-list');
+            var l = document.getElementById('losers-list');
+            try {
+                var r = await fetch('/api/top_movers');
+                var d = await r.json();
+                if (d.error) { g.innerHTML = '<div class="error">❌</div>'; l.innerHTML = '<div class="error">❌</div>'; return; }
+                renderMovers(g, d.gainers);
+                renderMovers(l, d.losers);
+            } catch (e) { g.innerHTML = '<div class="error">❌</div>'; l.innerHTML = '<div class="error">❌</div>'; }
+        }
+        function renderMovers(container, coins) {
+            if (!coins || coins.length === 0) { container.innerHTML = '<div class="error">Aucune donnée</div>'; return; }
+            container.innerHTML = '';
+            coins.forEach(function(coin, index) {
+                var change = coin.price_change_percentage_24h || 0;
+                var isPositive = change >= 0;
+                var cc = isPositive ? 'positive' : 'negative';
+                var arrow = isPositive ? '▲' : '▼';
+                var item = document.createElement('div');
+                item.className = 'mover-item';
+                item.style.cursor = 'pointer';
+                item.onclick = function() { showCryptoDetails(coin.id); };
+                item.innerHTML = '<div class="mover-rank">' + (index + 1) + '</div>' +
+                    '<div class="mover-info"><div class="mover-symbol">' + coin.symbol + '</div><div class="mover-name">' + coin.name + '</div></div>' +
+                    '<div class="mover-price"><div class="mover-current">$' + coin.current_price.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</div>' +
+                    '<div class="mover-change ' + cc + '">' + arrow + ' ' + change.toFixed(2) + '%</div></div>';
+                container.appendChild(item);
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════
+        //  CRYPTO DETAILS MODAL
+        // ═══════════════════════════════════════════════════════
+        function closeCryptoModal() { document.getElementById('crypto-modal').style.display = 'none'; }
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeCryptoModal(); });
+        async function showCryptoDetails(cryptoId) {
+            var modal = document.getElementById('crypto-modal');
+            var body = document.getElementById('crypto-modal-body');
+            body.innerHTML = '<div class="loading">⏳ ' + T.loading + '...</div>';
+            modal.style.display = 'flex';
+            try {
+                var response = await fetch('/api/crypto/' + cryptoId);
+                var data = await response.json();
+                if (data.error) { body.innerHTML = '<div class="error">❌ ' + data.error + '</div>'; return; }
+                var chg = data.market_data.price_change_24h || 0;
+                var cls = chg >= 0 ? 'positive' : 'negative';
+                var ar = chg >= 0 ? '▲' : '▼';
+                var price = data.market_data.current_price || 0;
+                var html = '';
+                html += '<div class="crypto-detail-header">';
+                html += '<img src="' + data.image + '" alt="' + data.symbol + '" class="crypto-detail-image">';
+                html += '<div><h2>' + data.name + ' <span class="crypto-detail-symbol">' + data.symbol + '</span></h2>';
+                html += '<div class="crypto-detail-price">$' + price.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 8}) + '</div>';
+                html += '<div class="' + cls + '" style="font-weight:bold;">' + ar + ' ' + chg.toFixed(2) + '%</div></div></div>';
+                if (data.description) { html += '<div class="crypto-detail-section"><h3>📝 ' + T.description + '</h3><p>' + data.description + '</p></div>'; }
+                html += '<div class="crypto-detail-section"><h3>📊 ' + T.market_data + '</h3><div class="crypto-detail-grid">';
+                html += '<div><span>Market Cap</span>$' + (data.market_data.market_cap || 0).toLocaleString('fr-FR') + '</div>';
+                html += '<div><span>' + T.volume_24h + '</span>$' + (data.market_data.total_volume || 0).toLocaleString('fr-FR') + '</div>';
+                html += '<div><span>ATH</span>$' + (data.market_data.ath || 0).toLocaleString('fr-FR') + '</div>';
+                html += '<div><span>' + T.circulating + '</span>' + (data.market_data.circulating_supply || 0).toLocaleString('fr-FR') + '</div>';
+                if (data.market_data.max_supply) html += '<div><span>' + T.max_supply + '</span>' + data.market_data.max_supply.toLocaleString('fr-FR') + '</div>';
+                if (data.genesis_date) html += '<div><span>' + T.created_on + '</span>' + data.genesis_date + '</div>';
+                html += '</div></div>';
+                if (data.exchanges && data.exchanges.length > 0) {
+                    html += '<div class="crypto-detail-section"><h3>🛒 ' + T.where_to_buy + '</h3><div class="exchanges-list">';
+                    data.exchanges.forEach(function(ex) {
+                        html += '<a href="' + ex.url + '" target="_blank" class="exchange-item"><div><div class="exchange-name">' + ex.name + '</div><div class="exchange-pair">' + ex.pair + '</div></div><span class="exchange-arrow">→</span></a>';
+                    });
+                    html += '</div></div>';
+                }
+                html += '<div class="crypto-detail-section"><h3>🔗 ' + T.useful_links + '</h3><div class="crypto-links">';
+                if (data.homepage) html += '<a href="' + data.homepage + '" target="_blank">🌐 ' + T.website + '</a>';
+                if (data.whitepaper) html += '<a href="' + data.whitepaper + '" target="_blank">📄 ' + T.whitepaper + '</a>';
+                if (data.twitter) html += '<a href="https://twitter.com/' + data.twitter + '" target="_blank">🐦 ' + T.twitter + '</a>';
+                if (data.reddit) html += '<a href="' + data.reddit + '" target="_blank">👽 ' + T.reddit + '</a>';
+                if (data.blockchain_site) html += '<a href="' + data.blockchain_site + '" target="_blank">🔍 ' + T.explorer + '</a>';
+                html += '</div></div>';
+                body.innerHTML = html;
+            } catch (error) { body.innerHTML = '<div class="error">❌ ' + error.message + '</div>'; }
         }
 
         // ═══════════════════════════════════════════════════════
         //  AI CHAT
         // ═══════════════════════════════════════════════════════
-        function toggleChat() {
-            const b = document.getElementById('chat-box');
-            b.style.display = b.style.display === 'flex' ? 'none' : 'flex';
-        }
-
+        function toggleChat() { var b = document.getElementById('chat-box'); b.style.display = b.style.display === 'flex' ? 'none' : 'flex'; }
         function addChatMessage(text, isUser) {
             const m = document.getElementById('chat-messages');
             const d = document.createElement('div');
@@ -302,27 +362,19 @@
             m.appendChild(d);
             m.scrollTop = m.scrollHeight;
         }
-
         async function sendMessage() {
             const input = document.getElementById('chat-input');
             const msg = input.value.trim();
             if (!msg) return;
-            
             addChatMessage(msg, true);
             input.value = '';
-            
             const l = document.createElement('div');
             l.id = 'chat-loading';
             l.className = 'chat-message ai';
-            l.textContent = '⏳ ...';
+            l.textContent = '⏳ ' + T.thinking + '...';
             document.getElementById('chat-messages').appendChild(l);
-            
             try {
-                const r = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({message: msg})
-                });
+                const r = await fetch('/api/chat', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({message: msg})});
                 const d = await r.json();
                 document.getElementById('chat-loading').remove();
                 addChatMessage(d.response || 'Erreur', false);
@@ -335,21 +387,15 @@
         // ═══════════════════════════════════════════════════════
         //  ALERT FORM
         // ═══════════════════════════════════════════════════════
-        function toggleAlertForm() {
-            const m = document.getElementById('alert-modal');
-            m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
-        }
-
+        function toggleAlertForm() { var m = document.getElementById('alert-modal'); m.style.display = m.style.display === 'flex' ? 'none' : 'flex'; }
         async function sendAlert(e) {
             e.preventDefault();
             const status = document.getElementById('alert-status');
             status.textContent = '⏳ ...';
             status.style.color = 'var(--accent-yellow)';
-            
             try {
                 const r = await fetch('/api/alerts/test', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         crypto_symbol: document.getElementById('alert-crypto').value,
                         condition: document.getElementById('alert-condition').value,
@@ -358,27 +404,17 @@
                     })
                 });
                 const d = await r.json();
-                if (d.success) {
-                    status.textContent = '✅ Email envoyé!';
-                    status.style.color = 'var(--accent-green)';
-                    setTimeout(toggleAlertForm, 2000);
-                } else {
-                    status.textContent = '❌ ' + (d.error || 'Erreur');
-                    status.style.color = 'var(--accent-red)';
-                }
-            } catch (err) {
-                status.textContent = '❌ ' + err.message;
-                status.style.color = 'var(--accent-red)';
-            }
+                if (d.success) { status.textContent = '✅ ' + T.alert_sent; status.style.color = 'var(--accent-green)'; setTimeout(toggleAlertForm, 2000); }
+                else { status.textContent = '❌ ' + (d.error || 'Erreur'); status.style.color = 'var(--accent-red)'; }
+            } catch (err) { status.textContent = '❌ ' + err.message; status.style.color = 'var(--accent-red)'; }
         }
 
         // ═══════════════════════════════════════════════════════
-        //  PRICES TABLE
+        //  PRICES
         // ═══════════════════════════════════════════════════════
         async function loadPrices() {
             document.getElementById('loading').style.display = 'block';
             document.getElementById('error').style.display = 'none';
-            
             try {
                 const r = await fetch('/api/prices?limit=' + document.getElementById('limit').value + '&currency=' + document.getElementById('currency').value);
                 const d = await r.json();
@@ -390,22 +426,18 @@
                 document.getElementById('loading').style.display = 'none';
             }
         }
-
         function renderTable(data, currency) {
             const tbody = document.getElementById('prices-body');
             tbody.innerHTML = '';
-            
             data.forEach(function(coin, i) {
                 const ch = coin.price_change_percentage_24h || 0;
                 const cc = ch >= 0 ? 'positive' : 'negative';
                 const ar = ch >= 0 ? '▲' : '▼';
                 const sym = currency === 'USD' ? '$' : '€';
-                
                 let rc = '#a6e3a1';
                 if (coin.risk_color === 'DANGER') rc = '#f38ba8';
                 else if (coin.risk_color === 'WARN') rc = '#f9e2af';
-                
-                let r = '<tr>';
+                let r = '<tr onclick="showCryptoDetails(\'' + coin.id + '\')" style="cursor:pointer;">';
                 r += '<td>' + (i + 1) + '</td>';
                 r += '<td><strong>' + coin.symbol.toUpperCase() + '</strong></td>';
                 r += '<td>' + coin.name + '</td>';
@@ -413,7 +445,7 @@
                 r += '<td class="' + cc + '">' + ar + ' ' + ch.toFixed(2) + '%</td>';
                 r += '<td>' + sym + coin.market_cap.toLocaleString('fr-FR') + '</td>';
                 r += '<td style="color:' + rc + '; font-weight:bold;">' + (coin.risk_score || 0) + '/100</td>';
-                r += '<td><button onclick="addToWatchlist(\'' + coin.id + '\', \'' + coin.symbol + '\')" class="star-btn">⭐</button></td>';
+                r += '<td><button onclick="event.stopPropagation(); addToWatchlist(\'' + coin.id + '\', \'' + coin.symbol + '\')" class="star-btn">⭐</button></td>';
                 r += '</tr>';
                 tbody.innerHTML += r;
             });
@@ -424,51 +456,42 @@
         // ═══════════════════════════════════════════════════════
         async function addToWatchlist(id, sym) {
             try {
-                const r = await fetch('/watchlist/add/' + id, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: 'symbol=' + sym
-                });
-                if (r.ok) {
-                    alert('⭐ ' + sym.toUpperCase() + ' ajouté!');
-                } else {
-                    alert('Connectez-vous');
-                    window.location.href = '/login';
-                }
-            } catch (e) {
-                alert('Erreur');
-            }
+                const r = await fetch('/watchlist/add/' + id, {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: 'symbol=' + sym});
+                if (r.ok) alert('⭐ ' + sym.toUpperCase() + ' ajouté!');
+                else { alert('Connectez-vous'); window.location.href = '/login'; }
+            } catch (e) { alert('Erreur'); }
         }
 
         // ═══════════════════════════════════════════════════════
-        //  NEWS FEED
+        //  NEWS
         // ═══════════════════════════════════════════════════════
         async function loadNews() {
             const c = document.getElementById('news-container');
             try {
                 const r = await fetch('/api/news');
                 const d = await r.json();
-                if (d.error || !d.news) {
-                    c.innerHTML = '<div class="error">❌</div>';
-                    return;
-                }
+                if (d.error || !d.news) { c.innerHTML = '<div class="error">❌</div>'; return; }
                 c.innerHTML = '';
                 d.news.forEach(function(a) {
                     const date = new Date(a.published * 1000).toLocaleDateString('fr-FR', {day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'});
                     const card = document.createElement('div');
                     card.className = 'news-card';
                     card.innerHTML = '<div class="news-image" style="background-image: url(\'' + a.image + '\');"></div>' +
-                        '<div class="news-content">' +
-                        '<div class="news-source">' + a.source + ' • ' + date + '</div>' +
-                        '<h3 class="news-title">' + a.title + '</h3>' +
-                        '<p class="news-body">' + a.body + '</p>' +
-                        '<a href="' + a.url + '" target="_blank" class="news-link">{{ t("lire_suite") }} →</a>' +
-                        '</div>';
+                        '<div class="news-content"><div class="news-source">' + a.source + ' • ' + date + '</div>' +
+                        '<h3 class="news-title">' + a.title + '</h3><p class="news-body">' + a.body + '</p>' +
+                        '<a href="' + a.url + '" target="_blank" class="news-link">' + T.read_more + ' →</a></div>';
                     c.appendChild(card);
                 });
-            } catch (e) {
-                c.innerHTML = '<div class="error">❌</div>';
-            }
+            } catch (e) { c.innerHTML = '<div class="error">❌</div>'; }
+        }
+
+        // ═══════════════════════════════════════════════════════
+        //  EXPORT CSV
+        // ═══════════════════════════════════════════════════════
+        function exportCSV() {
+            var limit = document.getElementById('limit').value;
+            var currency = document.getElementById('currency').value;
+            window.location.href = '/api/export/csv?limit=' + limit + '&currency=' + currency;
         }
 
         // ═══════════════════════════════════════════════════════
@@ -477,20 +500,17 @@
         document.getElementById('refresh').addEventListener('click', loadPrices);
         document.getElementById('limit').addEventListener('change', loadPrices);
         document.getElementById('currency').addEventListener('change', loadPrices);
-        
-        document.getElementById('chart-crypto').addEventListener('change', function() {
-            loadChart(this.value);
-        });
-        
-        document.getElementById('chart-period').addEventListener('change', function() {
-            loadChart();
-        });
+        document.getElementById('export-csv').addEventListener('click', exportCSV);
+        document.getElementById('chart-crypto').addEventListener('change', function() { loadChart(this.value); });
+        document.getElementById('chart-period').addEventListener('change', function() { loadChart(); });
 
         loadPrices();
         loadChart('bitcoin');
         loadNews();
+        loadTopMovers();
         setInterval(loadPrices, 60000);
         setInterval(loadNews, 300000);
+        setInterval(loadTopMovers, 120000);
     </script>
 </body>
 </html>
