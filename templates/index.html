@@ -25,7 +25,7 @@
                     <option value="{{ code }}" {% if get_locale() == code %}selected{% endif %}>{{ name }}</option>
                 {% endfor %}
             </select>
-            <a href="#" onclick="toggleChat(); return false;">💬 {{ t('ai_chat') }}</a>
+            <a href="#" onclick="toggleChat(); return false;">💬 AI Chat</a>
             <a href="#" onclick="toggleAlertForm(); return false;">🔔 {{ t('alerts') }}</a>
             <a href="#" onclick="toggleContractAnalyzer(); return false;">🔍 Analyzer</a>
             {% if current_user.is_authenticated %}
@@ -45,6 +45,16 @@
         <h1>🛡️ CryptoGuard</h1>
         <p>{{ t('title') }}</p>
     </header>
+
+    <!-- ═══ FEAR & GREED INDEX ═══ -->
+    <div class="fear-greed-section">
+        <div class="fg-card">
+            <h3 style="color:var(--accent-blue); margin-bottom:15px;">😱 Fear &amp; Greed Index</h3>
+            <div id="fear-greed-content">
+                <div class="loading">⏳ ...</div>
+            </div>
+        </div>
+    </div>
 
     <!-- ═══ CHART ═══ -->
     <div class="chart-container">
@@ -186,6 +196,33 @@
         </div>
     </div>
 
+    <!-- ═══ CONTRACT ANALYZER MODAL ═══ -->
+    <div id="contract-modal" class="crypto-modal">
+        <div class="crypto-modal-content">
+            <button onclick="toggleContractAnalyzer()" class="crypto-modal-close">×</button>
+            <h2 style="color:var(--accent-blue); margin-bottom:10px;">🔍 Analyze Smart Contract</h2>
+            <p style="color:var(--text-secondary); margin-bottom:20px;">
+                Upload une image d'un smart contract Solidity — l'IA analysera les risques.
+            </p>
+
+            <div id="contract-upload-area" class="contract-upload-area">
+                <input type="file" id="contract-image-input" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="previewContractImage(event)">
+                <div onclick="document.getElementById('contract-image-input').click()" style="cursor:pointer; padding:40px; text-align:center;">
+                    <div style="font-size:3em; margin-bottom:15px;">📸</div>
+                    <p style="color:var(--text-primary); font-weight:600;">Cliquez pour uploader une image</p>
+                    <p style="color:var(--text-muted); font-size:0.9em;">PNG, JPG, WebP (max 5 MB)</p>
+                </div>
+            </div>
+
+            <div id="contract-preview" style="display:none; margin-top:20px;">
+                <img id="contract-preview-img" style="max-width:100%; max-height:300px; border-radius:10px;">
+                <button onclick="analyzeContract()" class="btn-send-alert" style="width:100%; margin-top:15px;">🤖 Analyser avec l'IA</button>
+            </div>
+
+            <div id="contract-result" style="display:none; margin-top:20px;"></div>
+        </div>
+    </div>
+
     <script>
         // ═══════════════════════════════════════════════════════
         //  TRANSLATIONS (from server)
@@ -231,6 +268,43 @@
                 if (btn) btn.textContent = '☀️';
             }
         })();
+
+        // ═══════════════════════════════════════════════════════
+        //  FEAR & GREED INDEX
+        // ═══════════════════════════════════════════════════════
+        async function loadFearGreed() {
+            var container = document.getElementById('fear-greed-content');
+            try {
+                var response = await fetch('/api/fear-greed');
+                var data = await response.json();
+                if (data.error) {
+                    container.innerHTML = '<div class="error">❌ ' + data.error + '</div>';
+                    return;
+                }
+
+                var html = '';
+                html += '<div class="fg-gauge">';
+                html += '<div class="fg-value" style="color:' + data.color + ';">';
+                html += '<span style="font-size:3em;">' + data.emoji + '</span>';
+                html += '<div style="font-size:2.5em; font-weight:bold; margin:10px 0;">' + data.value + '</div>';
+                html += '<div style="font-size:1.2em; font-weight:600;">' + data.classification + '</div>';
+                html += '</div>';
+                html += '<div class="fg-bar-container">';
+                html += '<div class="fg-bar">';
+                html += '<div class="fg-bar-fill" style="width:' + data.value + '%; background:linear-gradient(90deg, #f38ba8, #f9e2af, #a6e3a1);"></div>';
+                html += '</div>';
+                html += '<div class="fg-labels">';
+                html += '<span>😱 0 (Extreme Fear)</span>';
+                html += '<span>😐 50 (Neutral)</span>';
+                html += '<span>🤑 100 (Extreme Greed)</span>';
+                html += '</div>';
+                html += '</div>';
+                html += '</div>';
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = '<div class="error">❌ ' + error.message + '</div>';
+            }
+        }
 
         // ═══════════════════════════════════════════════════════
         //  CHART
@@ -304,7 +378,13 @@
         //  CRYPTO DETAILS MODAL
         // ═══════════════════════════════════════════════════════
         function closeCryptoModal() { document.getElementById('crypto-modal').style.display = 'none'; }
-        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeCryptoModal(); });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeCryptoModal();
+                document.getElementById('contract-modal').style.display = 'none';
+                document.getElementById('alert-modal').style.display = 'none';
+            }
+        });
         async function showCryptoDetails(cryptoId) {
             var modal = document.getElementById('crypto-modal');
             var body = document.getElementById('crypto-modal-body');
@@ -409,62 +489,7 @@
                 else { status.textContent = '❌ ' + (d.error || 'Erreur'); status.style.color = 'var(--accent-red)'; }
             } catch (err) { status.textContent = '❌ ' + err.message; status.style.color = 'var(--accent-red)'; }
         }
-// ═══════════════════════════════════════════════════════
-//  CONTRACT ANALYZER
-// ═══════════════════════════════════════════════════════
-function toggleContractAnalyzer() {
-    var m = document.getElementById('contract-modal');
-    m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
-    // Reset
-    document.getElementById('contract-preview').style.display = 'none';
-    document.getElementById('contract-result').style.display = 'none';
-    document.getElementById('contract-image-input').value = '';
-}
 
-function previewContractImage(event) {
-    var file = event.target.files[0];
-    if (!file) return;
-
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        document.getElementById('contract-preview-img').src = e.target.result;
-        document.getElementById('contract-preview').style.display = 'block';
-        document.getElementById('contract-result').style.display = 'none';
-    };
-    reader.readAsDataURL(file);
-}
-
-async function analyzeContract() {
-    var input = document.getElementById('contract-image-input');
-    var file = input.files[0];
-    if (!file) return;
-
-    var resultDiv = document.getElementById('contract-result');
-    resultDiv.style.display = 'block';
-    resultDiv.innerHTML = '<div class="loading">⏳ Analyse en cours... (10-30 secondes)</div>';
-
-    var formData = new FormData();
-    formData.append('image', file);
-
-    try {
-        var response = await fetch('/api/analyze-contract', {
-            method: 'POST',
-            body: formData
-        });
-
-        var data = await response.json();
-
-        if (data.success) {
-            resultDiv.innerHTML = '<div class="contract-analysis">' + 
-                data.analysis.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') + 
-                '</div>';
-        } else {
-            resultDiv.innerHTML = '<div class="error">❌ ' + (data.error || 'Erreur') + '</div>';
-        }
-    } catch (error) {
-        resultDiv.innerHTML = '<div class="error">❌ ' + error.message + '</div>';
-    }
-}
         // ═══════════════════════════════════════════════════════
         //  PRICES
         // ═══════════════════════════════════════════════════════
@@ -551,6 +576,53 @@ async function analyzeContract() {
         }
 
         // ═══════════════════════════════════════════════════════
+        //  CONTRACT ANALYZER
+        // ═══════════════════════════════════════════════════════
+        function toggleContractAnalyzer() {
+            var m = document.getElementById('contract-modal');
+            m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+            document.getElementById('contract-preview').style.display = 'none';
+            document.getElementById('contract-result').style.display = 'none';
+            document.getElementById('contract-image-input').value = '';
+        }
+
+        function previewContractImage(event) {
+            var file = event.target.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('contract-preview-img').src = e.target.result;
+                document.getElementById('contract-preview').style.display = 'block';
+                document.getElementById('contract-result').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function analyzeContract() {
+            var input = document.getElementById('contract-image-input');
+            var file = input.files[0];
+            if (!file) return;
+            var resultDiv = document.getElementById('contract-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="loading">⏳ Analyse en cours... (10-30 secondes)</div>';
+            var formData = new FormData();
+            formData.append('image', file);
+            try {
+                var response = await fetch('/api/analyze-contract', { method: 'POST', body: formData });
+                var data = await response.json();
+                if (data.success) {
+                    resultDiv.innerHTML = '<div class="contract-analysis">' +
+                        data.analysis.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') +
+                        '</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ ' + (data.error || 'Erreur') + '</div>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error">❌ ' + error.message + '</div>';
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════
         //  INIT
         // ═══════════════════════════════════════════════════════
         document.getElementById('refresh').addEventListener('click', loadPrices);
@@ -564,34 +636,11 @@ async function analyzeContract() {
         loadChart('bitcoin');
         loadNews();
         loadTopMovers();
+        loadFearGreed();
         setInterval(loadPrices, 60000);
         setInterval(loadNews, 300000);
         setInterval(loadTopMovers, 120000);
+        setInterval(loadFearGreed, 600000);
     </script>
-    <!-- ═══ CONTRACT ANALYZER MODAL ═══ -->
-<div id="contract-modal" class="crypto-modal">
-    <div class="crypto-modal-content">
-        <button onclick="toggleContractAnalyzer()" class="crypto-modal-close">×</button>
-        <h2 style="color:var(--accent-blue); margin-bottom:10px;">🔍 Analyze Smart Contract</h2>
-        <p style="color:var(--text-secondary); margin-bottom:20px;">
-            Upload une image d'un smart contract Solidity — l'IA analysera les risques.
-        </p>
-
-        <div id="contract-upload-area" class="contract-upload-area">
-<input type="file" id="contract-image-input" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="previewContractImage(event)">            <div onclick="document.getElementById('contract-image-input').click()" style="cursor:pointer; padding:40px; text-align:center;">
-                <div style="font-size:3em; margin-bottom:15px;">📸</div>
-                <p style="color:var(--text-primary); font-weight:600;">Cliquez pour uploader une image</p>
-                <p style="color:var(--text-muted); font-size:0.9em;">PNG, JPG, WebP (max 5 MB)</p>
-            </div>
-        </div>
-
-        <div id="contract-preview" style="display:none; margin-top:20px;">
-            <img id="contract-preview-img" style="max-width:100%; max-height:300px; border-radius:10px;">
-            <button onclick="analyzeContract()" class="btn-send-alert" style="width:100%; margin-top:15px;">🤖 Analyser avec l'IA</button>
-        </div>
-
-        <div id="contract-result" style="display:none; margin-top:20px;"></div>
-    </div>
-</div>
 </body>
 </html>

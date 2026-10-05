@@ -418,7 +418,57 @@ def api_top_movers():
 
     return jsonify({"gainers": [fmt(c) for c in gainers], "losers": [fmt(c) for c in losers]})
 
-
+@app.route("/api/fear-greed")
+def api_fear_greed():
+    """API: Fear & Greed Index من Alternative.me"""
+    try:
+        url = "https://api.alternative.me/fng/?limit=30"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        # البيانات الحالية
+        current = data["data"][0]
+        value = int(current["value"])
+        classification = current["value_classification"]
+        timestamp = int(current["timestamp"])
+        
+        # آخر 30 يوم (للـChart)
+        history = []
+        for item in data["data"]:
+            history.append({
+                "value": int(item["value"]),
+                "timestamp": int(item["timestamp"]),
+                "classification": item["value_classification"]
+            })
+        
+        # اللون حسب القيمة
+        if value <= 25:
+            color = "#f38ba8"  # أحمر (خوف)
+            emoji = "😱"
+        elif value <= 45:
+            color = "#fab387"  # برتقالي
+            emoji = "😟"
+        elif value <= 55:
+            color = "#f9e2af"  # أصفر (محايد)
+            emoji = "😐"
+        elif value <= 75:
+            color = "#a6e3a1"  # أخضر
+            emoji = "😊"
+        else:
+            color = "#40a02b"  # أخضر غامق (طمع)
+            emoji = "🤑"
+        
+        return jsonify({
+            "value": value,
+            "classification": classification,
+            "color": color,
+            "emoji": emoji,
+            "timestamp": timestamp,
+            "history": history
+        })
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
 # ═══════════════════════════════════════════════════════
 #  API: EXPORT CSV
 # ═══════════════════════════════════════════════════════

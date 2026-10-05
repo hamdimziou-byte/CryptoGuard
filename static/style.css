@@ -1387,3 +1387,60 @@ html.light-mode .oauth-google:hover {
 .contract-analysis strong {
     color: var(--accent-blue);
 }
+/* ═══════════════════════════════════════════════════════
+   FEAR & GREED INDEX
+   ═══════════════════════════════════════════════════════ */
+.fear-greed-section {
+    max-width: 1200px;
+    margin: 0 auto 30px;
+}
+
+.fg-card {
+    background: var(--bg-secondary);
+    border-radius: 15px;
+    padding: 25px;
+    transition: background 0.3s;
+    animation: fadeIn 0.6s ease-out;
+}
+
+.fg-gauge {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.fg-bar-container {
+    margin: 20px 0;
+}
+
+.fg-bar {
+    width: 100%;
+    height: 30px;
+    background: var(--bg-primary);
+    border-radius: 15px;
+    overflow: hidden;
+    position: relative;
+    border: 2px solid var(--border-color);
+}
+
+.fg-bar-fill {
+    height: 100%;
+    border-radius: 15px;
+    transition: width 1s ease-out, background 0.3s;
+}
+
+.fg-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    font-size: 0.85em;
+    color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+    .fg-labels {
+        font-size: 0.7em;
+        flex-direction: column;
+        gap: 5px;
+        text-align: center;
+    }
+}
