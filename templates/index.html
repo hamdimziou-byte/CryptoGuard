@@ -27,6 +27,7 @@
             </select>
             <a href="#" onclick="toggleChat(); return false;">💬 {{ t('ai_chat') }}</a>
             <a href="#" onclick="toggleAlertForm(); return false;">🔔 {{ t('alerts') }}</a>
+            <a href="#" onclick="toggleContractAnalyzer(); return false;">🔍 Analyzer</a>
             {% if current_user.is_authenticated %}
                 <a href="/portfolio">💼 {{ t('portfolio') }}</a>
                 <a href="/watchlist">⭐ {{ t('watchlist') }}</a>
@@ -408,7 +409,62 @@
                 else { status.textContent = '❌ ' + (d.error || 'Erreur'); status.style.color = 'var(--accent-red)'; }
             } catch (err) { status.textContent = '❌ ' + err.message; status.style.color = 'var(--accent-red)'; }
         }
+// ═══════════════════════════════════════════════════════
+//  CONTRACT ANALYZER
+// ═══════════════════════════════════════════════════════
+function toggleContractAnalyzer() {
+    var m = document.getElementById('contract-modal');
+    m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+    // Reset
+    document.getElementById('contract-preview').style.display = 'none';
+    document.getElementById('contract-result').style.display = 'none';
+    document.getElementById('contract-image-input').value = '';
+}
 
+function previewContractImage(event) {
+    var file = event.target.files[0];
+    if (!file) return;
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('contract-preview-img').src = e.target.result;
+        document.getElementById('contract-preview').style.display = 'block';
+        document.getElementById('contract-result').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+}
+
+async function analyzeContract() {
+    var input = document.getElementById('contract-image-input');
+    var file = input.files[0];
+    if (!file) return;
+
+    var resultDiv = document.getElementById('contract-result');
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<div class="loading">⏳ Analyse en cours... (10-30 secondes)</div>';
+
+    var formData = new FormData();
+    formData.append('image', file);
+
+    try {
+        var response = await fetch('/api/analyze-contract', {
+            method: 'POST',
+            body: formData
+        });
+
+        var data = await response.json();
+
+        if (data.success) {
+            resultDiv.innerHTML = '<div class="contract-analysis">' + 
+                data.analysis.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') + 
+                '</div>';
+        } else {
+            resultDiv.innerHTML = '<div class="error">❌ ' + (data.error || 'Erreur') + '</div>';
+        }
+    } catch (error) {
+        resultDiv.innerHTML = '<div class="error">❌ ' + error.message + '</div>';
+    }
+}
         // ═══════════════════════════════════════════════════════
         //  PRICES
         // ═══════════════════════════════════════════════════════
@@ -512,5 +568,30 @@
         setInterval(loadNews, 300000);
         setInterval(loadTopMovers, 120000);
     </script>
+    <!-- ═══ CONTRACT ANALYZER MODAL ═══ -->
+<div id="contract-modal" class="crypto-modal">
+    <div class="crypto-modal-content">
+        <button onclick="toggleContractAnalyzer()" class="crypto-modal-close">×</button>
+        <h2 style="color:var(--accent-blue); margin-bottom:10px;">🔍 Analyze Smart Contract</h2>
+        <p style="color:var(--text-secondary); margin-bottom:20px;">
+            Upload une image d'un smart contract Solidity — l'IA analysera les risques.
+        </p>
+
+        <div id="contract-upload-area" class="contract-upload-area">
+<input type="file" id="contract-image-input" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="previewContractImage(event)">            <div onclick="document.getElementById('contract-image-input').click()" style="cursor:pointer; padding:40px; text-align:center;">
+                <div style="font-size:3em; margin-bottom:15px;">📸</div>
+                <p style="color:var(--text-primary); font-weight:600;">Cliquez pour uploader une image</p>
+                <p style="color:var(--text-muted); font-size:0.9em;">PNG, JPG, WebP (max 5 MB)</p>
+            </div>
+        </div>
+
+        <div id="contract-preview" style="display:none; margin-top:20px;">
+            <img id="contract-preview-img" style="max-width:100%; max-height:300px; border-radius:10px;">
+            <button onclick="analyzeContract()" class="btn-send-alert" style="width:100%; margin-top:15px;">🤖 Analyser avec l'IA</button>
+        </div>
+
+        <div id="contract-result" style="display:none; margin-top:20px;"></div>
+    </div>
+</div>
 </body>
 </html>

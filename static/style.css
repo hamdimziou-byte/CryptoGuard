@@ -1271,3 +1271,119 @@ html[dir="rtl"] .mover-item:hover {
         transition-duration: 0.01ms !important;
     }
 }
+/* ═══════════════════════════════════════════════════════
+   OAUTH BUTTONS
+   ═══════════════════════════════════════════════════════ */
+.oauth-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.oauth-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 1em;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border: 2px solid var(--border-color);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.oauth-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.oauth-google {
+    background: #ffffff;
+    color: #333333;
+    border-color: #dadce0;
+}
+
+.oauth-google:hover {
+    background: #f8f9fa;
+    border-color: #c5c7cb;
+}
+
+.oauth-facebook {
+    background: #1877F2;
+    color: #ffffff;
+    border-color: #1877F2;
+}
+
+.oauth-facebook:hover {
+    background: #166FE5;
+    border-color: #166FE5;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 20px 0;
+    color: var(--text-muted);
+    font-size: 0.9em;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.auth-divider span {
+    padding: 0 15px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Light mode adjustments */
+html.light-mode .oauth-google {
+    background: #ffffff;
+    color: #333333;
+    border-color: #dadce0;
+}
+
+html.light-mode .oauth-google:hover {
+    background: #f8f9fa;
+}
+/* ═══════════════════════════════════════════════════════
+   CONTRACT ANALYZER
+   ═══════════════════════════════════════════════════════ */
+.contract-upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: 15px;
+    background: var(--bg-primary);
+    transition: all 0.3s;
+}
+
+.contract-upload-area:hover {
+    border-color: var(--accent-blue);
+    background: var(--bg-tertiary);
+}
+
+.contract-analysis {
+    background: var(--bg-primary);
+    padding: 20px;
+    border-radius: 10px;
+    color: var(--text-primary);
+    line-height: 1.8;
+    font-size: 0.95em;
+    max-height: 400px;
+    overflow-y: auto;
+    border-left: 4px solid var(--accent-blue);
+}
+
+.contract-analysis strong {
+    color: var(--accent-blue);
+}

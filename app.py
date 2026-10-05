@@ -1,10 +1,11 @@
 """
 CryptoGuard Web App - Flask Backend
-Version: 3.1.0 - Complete & Clean
+Version: 4.0.0 - With OAuth (Google + Facebook)
 """
 
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session, Response
-from flask_login import LoginManager, current_user, login_required
+from flask_login import LoginManager, current_user, login_required, login_user
+from flask_babel import Babel, gettext as _
 from datetime import datetime
 from models import db, User, WatchlistItem, PortfolioItem
 from auth import auth
@@ -12,6 +13,7 @@ import main as cg
 from ai_chat import chat
 from scam_detector import enrich_with_risk
 from email_alerts import send_alert_email
+from authlib.integrations.flask_client import OAuth
 import requests
 import json
 import time
@@ -31,6 +33,33 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:/
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
+
+
+# ═══════════════════════════════════════════════════════
+#  OAUTH CONFIG
+# ═══════════════════════════════════════════════════════
+
+oauth = OAuth(app)
+
+# Google OAuth
+oauth.register(
+    name="google",
+    client_id=os.environ.get("GOOGLE_CLIENT_ID"),
+    client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={"scope": "openid email profile"}
+)
+
+# Facebook OAuth
+oauth.register(
+    name="facebook",
+    client_id=os.environ.get("FACEBOOK_CLIENT_ID"),
+    client_secret=os.environ.get("FACEBOOK_CLIENT_SECRET"),
+    access_token_url="https://graph.facebook.com/oauth/access_token",
+    authorize_url="https://www.facebook.com/dialog/oauth",
+    api_base_url="https://graph.facebook.com/",
+    client_kwargs={"scope": "email public_profile"}
+)
 
 
 # ═══════════════════════════════════════════════════════
@@ -65,6 +94,9 @@ TRANSLATIONS = {
         "twitter": "Twitter", "reddit": "Reddit", "explorer": "Explorer",
         "created_on": "Créée le", "volume_24h": "Volume 24h",
         "circulating": "Circulating", "max_supply": "Max Supply",
+        "or_continue_with": "Ou continuer avec",
+        "continue_google": "Continuer avec Google",
+        "continue_facebook": "Continuer avec Facebook",
     },
     "en": {
         "home": "Home", "alerts": "Alerts", "login": "Login",
@@ -91,6 +123,9 @@ TRANSLATIONS = {
         "twitter": "Twitter", "reddit": "Reddit", "explorer": "Explorer",
         "created_on": "Created on", "volume_24h": "24h Volume",
         "circulating": "Circulating", "max_supply": "Max Supply",
+        "or_continue_with": "Or continue with",
+        "continue_google": "Continue with Google",
+        "continue_facebook": "Continue with Facebook",
     },
     "ar": {
         "home": "الرئيسية", "alerts": "التنبيهات", "login": "دخول",
@@ -117,6 +152,9 @@ TRANSLATIONS = {
         "twitter": "تويتر", "reddit": "ريديت", "explorer": "المستكشف",
         "created_on": "أنشئت في", "volume_24h": "حجم 24 ساعة",
         "circulating": "المتداول", "max_supply": "الحد الأقصى",
+        "or_continue_with": "أو تابع بـ",
+        "continue_google": "تابع بحساب Google",
+        "continue_facebook": "تابع بحساب Facebook",
     },
 }
 
@@ -176,6 +214,102 @@ def set_language(lang):
     if lang in LANGUAGES:
         session["language"] = lang
     return redirect(request.referrer or url_for("index"))
+
+
+# ═══════════════════════════════════════════════════════
+#  OAUTH ROUTES
+# ═══════════════════════════════════════════════════════
+
+@app.route("/auth/google")
+def google_login():
+    """بداية Google OAuth"""
+    redirect_uri = url_for("google_callback", _external=True)
+    return oauth.google.authorize_redirect(redirect_uri)
+
+
+@app.route("/auth/google/callback")
+def google_callback():
+    """Callback من Google"""
+    try:
+        token = oauth.google.authorize_access_token()
+        user_info = token.get("userinfo") or oauth.google.userinfo()
+
+        email = (user_info.get("email") or "").lower()
+        name = user_info.get("name") or email.split("@")[0]
+
+        if not email:
+            return redirect(url_for("auth.login"))
+
+        user = User.query.filter_by(email=email).first()
+
+        if not user:
+            base_username = email.split("@")[0]
+            username = base_username
+            counter = 1
+            while User.query.filter_by(username=username).first():
+                username = f"{base_username}{counter}"
+                counter += 1
+
+            user = User(
+                username=username,
+                email=email,
+                password_hash="oauth-google"
+            )
+            db.session.add(user)
+            db.session.commit()
+
+        login_user(user)
+        return redirect(url_for("index"))
+    except Exception as e:
+        print(f"Google OAuth error: {e}")
+        return redirect(url_for("auth.login"))
+
+
+@app.route("/auth/facebook")
+def facebook_login():
+    """بداية Facebook OAuth"""
+    redirect_uri = url_for("facebook_callback", _external=True)
+    return oauth.facebook.authorize_redirect(redirect_uri)
+
+
+@app.route("/auth/facebook/callback")
+def facebook_callback():
+    """Callback من Facebook"""
+    try:
+        token = oauth.facebook.authorize_access_token()
+        resp = oauth.facebook.get("me?fields=id,name,email")
+        profile = resp.json()
+
+        email = (profile.get("email") or "").lower()
+        name = profile.get("name", "Facebook User")
+        fb_id = profile.get("id", "")
+
+        if not email:
+            email = f"fb_{fb_id}@cryptoguard.local"
+
+        user = User.query.filter_by(email=email).first()
+
+        if not user:
+            base_username = name.replace(" ", "").lower()[:15] or f"fb_{fb_id}"
+            username = base_username
+            counter = 1
+            while User.query.filter_by(username=username).first():
+                username = f"{base_username}{counter}"
+                counter += 1
+
+            user = User(
+                username=username,
+                email=email,
+                password_hash="oauth-facebook"
+            )
+            db.session.add(user)
+            db.session.commit()
+
+        login_user(user)
+        return redirect(url_for("index"))
+    except Exception as e:
+        print(f"Facebook OAuth error: {e}")
+        return redirect(url_for("auth.login"))
 
 
 # ═══════════════════════════════════════════════════════
@@ -491,6 +625,40 @@ def api_chat():
         crypto_data = cg.fetch_prices_robust(cg.CRYPTOS[:10], "usd")
     response = chat(message, crypto_data)
     return jsonify({"message": message, "response": response})
+
+@app.route("/api/analyze-contract", methods=["POST"])
+def api_analyze_contract():
+    """API: تحليل صورة عقد ذكي"""
+    from contract_analyzer import analyze_contract_image
+    
+    if "image" not in request.files:
+        return jsonify({"error": "Aucune image fournie"}), 400
+    
+    image = request.files["image"]
+    
+    if not image.filename:
+        return jsonify({"error": "Fichier vide"}), 400
+    
+    # التحقق من النوع
+    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
+    if image.mimetype not in allowed_types:
+        return jsonify({"error": "Type d'image non supporté"}), 400
+    
+    # التحقق من الحجم (max 5 MB)
+    image.seek(0, 2)
+    size = image.tell()
+    image.seek(0)
+    
+    if size > 5 * 1024 * 1024:
+        return jsonify({"error": "Image trop volumineuse (max 5 MB)"}), 400
+    
+    try:
+        lang = get_locale()
+        image_bytes = image.read()
+        result = analyze_contract_image(image_bytes, image.mimetype, lang)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ═══════════════════════════════════════════════════════
