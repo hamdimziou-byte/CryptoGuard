@@ -209,3 +209,57 @@ html[dir="rtl"] .navbar { flex-direction: row-reverse; }
 html[dir="rtl"] .chat-box { right: auto; left: 20px; }
 html[dir="rtl"] th, html[dir="rtl"] td { text-align: right; }
 html[dir="rtl"] .chat-message.user { margin-left: 0; margin-right: auto; }
+/* ═══ AI RECOMMENDATIONS ═══ */
+.recommendations-section {
+    max-width: 1200px;
+    margin: 0 auto 30px;
+}
+
+.recommendations-card {
+    background: linear-gradient(135deg, rgba(137,180,250,0.1), rgba(203,166,247,0.1));
+    border: 2px solid var(--accent-blue);
+    border-radius: 15px;
+    padding: 25px;
+    animation: fadeIn 0.6s;
+}
+
+.recommendations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 15px;
+}
+
+.recommendation-item {
+    background: var(--bg-primary);
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    transition: all 0.3s;
+    border: 2px solid transparent;
+}
+
+.recommendation-item:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent-blue);
+    box-shadow: 0 10px 30px rgba(137,180,250,0.2);
+}
+
+.rec-symbol {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: var(--accent-blue);
+    margin-bottom: 8px;
+}
+
+.rec-name {
+    color: var(--text-secondary);
+    font-size: 0.9em;
+    text-transform: capitalize;
+    margin-bottom: 12px;
+}
+
+.rec-reason {
+    color: var(--text-muted);
+    font-size: 0.8em;
+    line-height: 1.4;
+}

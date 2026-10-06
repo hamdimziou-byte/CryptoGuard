@@ -1,0 +1,41 @@
+{
+  "1": {
+    "timestamp": 1791313963.9543467,
+    "data": {
+      "recommendations": [
+        {
+          "crypto_id": "bitcoin",
+          "symbol": "BTC",
+          "reason": "Leader du marché, haute liquidité et forte reconnaissance"
+        },
+        {
+          "crypto_id": "ethereum",
+          "symbol": "ETH",
+          "reason": "Plateforme de contrats intelligents dominante, complémentaire à Bitcoin"
+        },
+        {
+          "crypto_id": "solana",
+          "symbol": "SOL",
+          "reason": "Écosystème à forte croissance avec des frais de transaction très bas"
+        }
+      ],
+      "user_insight": "L'utilisateur est nouveau, montre un intérêt marqué pour Bitcoin et consulte régulièrement les graphiques, ce qui suggère une préférence pour les actifs liquides et bien établis.",
+      "personalized": true,
+      "analysis": {
+        "total_interactions": 4,
+        "user_type": "new",
+        "favorites": [
+          {
+            "crypto_id": "bitcoin",
+            "score": 8
+          }
+        ],
+        "top_viewed": [],
+        "top_watchlist": [],
+        "actions_breakdown": {
+          "chart": 4
+        }
+      }
+    }
+  }
+}

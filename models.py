@@ -9,6 +9,10 @@ from datetime import datetime
 db = SQLAlchemy()
 
 
+# ═══════════════════════════════════════════════════════
+#  USER
+# ═══════════════════════════════════════════════════════
+
 class User(UserMixin, db.Model):
     __tablename__ = "users"
     
@@ -25,6 +29,10 @@ class User(UserMixin, db.Model):
         return f"<User {self.username}>"
 
 
+# ═══════════════════════════════════════════════════════
+#  WATCHLIST
+# ═══════════════════════════════════════════════════════
+
 class WatchlistItem(db.Model):
     __tablename__ = "watchlist"
     
@@ -37,6 +45,10 @@ class WatchlistItem(db.Model):
     def __repr__(self):
         return f"<WatchlistItem {self.crypto_symbol}>"
 
+
+# ═══════════════════════════════════════════════════════
+#  PORTFOLIO
+# ═══════════════════════════════════════════════════════
 
 class PortfolioItem(db.Model):
     __tablename__ = "portfolio"
@@ -51,3 +63,21 @@ class PortfolioItem(db.Model):
     
     def __repr__(self):
         return f"<PortfolioItem {self.crypto_symbol} x{self.amount}>"
+
+
+# ═══════════════════════════════════════════════════════
+#  INTERACTIONS (للتعلم)
+# ═══════════════════════════════════════════════════════
+
+class Interaction(db.Model):
+    __tablename__ = "interactions"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    crypto_id = db.Column(db.String(100), nullable=False)
+    crypto_symbol = db.Column(db.String(20), nullable=False)
+    action = db.Column(db.String(50), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    def __repr__(self):
+        return f"<Interaction {self.crypto_symbol} {self.action}>"

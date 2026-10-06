@@ -1,12 +1,12 @@
 """
 CryptoGuard Web App - Flask Backend
-Version: 7.0.0 - Complete Clean
+Version: 8.0.0 - With AI Self-Learning
 """
 
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session, Response
 from flask_login import LoginManager, current_user, login_required, login_user
 from datetime import datetime
-from models import db, User, WatchlistItem, PortfolioItem
+from models import db, User, WatchlistItem, PortfolioItem, Interaction
 from auth import auth
 import main as cg
 from ai_chat import chat
@@ -32,7 +32,18 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:/
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
+# ═══════════════════════════════════════════════════════
+#  AUTO SCHEDULER (AI Self-Learning)
+# ═══════════════════════════════════════════════════════
 
+scheduler = None
+
+if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
+    try:
+        from scheduler import start_scheduler
+        scheduler = start_scheduler(app, db, User, Interaction, chat)
+    except Exception as e:
+        print(f"⚠️ Scheduler error: {e}")
 
 # ═══════════════════════════════════════════════════════
 #  OAUTH CONFIG
@@ -491,6 +502,60 @@ def api_sentiment():
 
 
 # ═══════════════════════════════════════════════════════
+#  API: TRACK (للتعلم)
+# ═══════════════════════════════════════════════════════
+
+@app.route("/api/track", methods=["POST"])
+def api_track():
+    """API: تتبع تفاعلات المستخدم"""
+    data = request.get_json()
+    crypto_id = data.get("crypto_id", "").strip().lower()
+    crypto_symbol = data.get("crypto_symbol", "").strip().upper()
+    action = data.get("action", "").strip()
+
+    if not crypto_id or not action:
+        return jsonify({"error": "Données invalides"}), 400
+
+    if action not in ["view", "search", "watchlist", "portfolio", "chart"]:
+        return jsonify({"error": "Action invalide"}), 400
+
+    user_id = current_user.id if current_user.is_authenticated else None
+
+    try:
+        interaction = Interaction(
+            user_id=user_id,
+            crypto_id=crypto_id,
+            crypto_symbol=crypto_symbol,
+            action=action
+        )
+        db.session.add(interaction)
+        db.session.commit()
+        return jsonify({"status": "tracked"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════
+#  API: RECOMMENDATIONS (AI Learning)
+# ═══════════════════════════════════════════════════════
+
+@app.route("/api/recommendations")
+@login_required
+def api_recommendations():
+    """API: توصيات AI مخصّصة"""
+    from ai_learner import generate_ai_recommendations, save_learned_data, load_learned_data
+
+    cached = load_learned_data(current_user.id)
+    if cached:
+        return jsonify(cached)
+
+    result = generate_ai_recommendations(current_user.id, db, Interaction, chat)
+    save_learned_data(current_user.id, result)
+    return jsonify(result)
+
+
+# ═══════════════════════════════════════════════════════
 #  API: DCA
 # ═══════════════════════════════════════════════════════
 
@@ -529,7 +594,6 @@ def api_dca():
         cur_val = total_coins * cur_price
         roi = ((cur_val - total_inv) / total_inv * 100) if total_inv > 0 else 0
         avg = (total_inv / total_coins) if total_coins > 0 else 0
-        first = purchases[0] if purchases else None
         lump = (total_inv / prices[0]) * cur_price if prices[0] > 0 else 0
         return jsonify({
             "crypto_id": crypto_id, "monthly_amount": amount, "months": months,

@@ -49,7 +49,16 @@
         <h1>🛡️ CryptoGuard</h1>
         <p>{{ t('title') }}</p>
     </header>
-
+<!-- AI RECOMMENDATIONS -->
+<div class="recommendations-section" id="recommendations-section" style="display:none;">
+    <div class="recommendations-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="color:var(--accent-blue); margin:0;">💡 Recommandé pour vous</h3>
+            <button onclick="refreshRecommendations()" class="theme-btn" title="Rafraîchir">🔄</button>
+        </div>
+        <div id="recommendations-content"><div class="loading">⏳ ...</div></div>
+    </div>
+</div>
     <div class="fear-greed-section">
         <div class="fg-card">
             <h3 style="color:var(--accent-blue); margin-bottom:15px;">😱 Fear &amp; Greed Index</h3>
@@ -493,14 +502,21 @@
                 });
             }
         });
-        async function showCryptoDetails(id) {
-            var modal = document.getElementById('crypto-modal'), body = document.getElementById('crypto-modal-body');
-            body.innerHTML = '<div class="loading">⏳ ...</div>';
-            modal.style.display = 'flex';
-            try {
-                var r = await fetch('/api/crypto/' + id);
-                var d = await r.json();
-                if (d.error) { body.innerHTML = '<div class="error">❌ ' + d.error + '</div>'; return; }
+async function showCryptoDetails(id) {
+    var modal = document.getElementById('crypto-modal'), body = document.getElementById('crypto-modal-body');
+    body.innerHTML = '<div class="loading">⏳ ...</div>';
+    modal.style.display = 'flex';
+    try {
+        var r = await fetch('/api/crypto/' + id);
+        var d = await r.json();
+        if (d.error) {
+            var errMsg = d.error;
+            if (errMsg.includes('429')) {
+                errMsg = '⚠️ Trop de requêtes. Réessayez dans 1 minute.';
+            }
+            body.innerHTML = '<div style="text-align:center; padding:30px;"><div style="font-size:3em; margin-bottom:15px;">⏳</div><div style="color:var(--accent-yellow); font-weight:bold; margin-bottom:10px;">Trop de requêtes</div><div style="color:var(--text-muted); font-size:0.9em;">' + errMsg + '</div><button onclick="closeCryptoModal()" class="btn-primary" style="margin-top:20px; cursor:pointer; border:none;">OK</button></div>';
+            return;
+        }
                 var chg = d.market_data.price_change_24h || 0, cls = chg >= 0 ? 'positive' : 'negative';
                 var h = '<div class="crypto-detail-header"><img src="' + d.image + '" class="crypto-detail-image"><div>';
                 h += '<h2>' + d.name + ' <span class="crypto-detail-symbol">' + d.symbol + '</span></h2>';
@@ -765,7 +781,96 @@
                 rd.innerHTML = h;
             } catch (e) { rd.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
+// ═══ TRACKING ═══
+async function track(action, cryptoId, symbol) {
+    try {
+        await fetch('/api/track', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: action, crypto_id: cryptoId, crypto_symbol: symbol})
+        });
+    } catch (e) { /* Silent fail */ }
+}
 
+// Track في showCryptoDetails
+var _origShowCryptoDetails = showCryptoDetails;
+showCryptoDetails = function(cryptoId) {
+    track('view', cryptoId, '');
+    return _origShowCryptoDetails(cryptoId);
+};
+
+// Track في addToWatchlist
+var _origAddToWatchlist = addToWatchlist;
+addToWatchlist = function(id, sym) {
+    track('watchlist', id, sym);
+    return _origAddToWatchlist(id, sym);
+};
+
+// Track في loadChart
+var _origLoadChart = loadChart;
+loadChart = function(id) {
+    if (id) track('chart', id, '');
+    return _origLoadChart(id);
+};
+// ═══ AI RECOMMENDATIONS ═══
+async function loadRecommendations() {
+    var section = document.getElementById('recommendations-section');
+    var c = document.getElementById('recommendations-content');
+    if (!section || !c) return;
+
+    try {
+        var r = await fetch('/api/recommendations');
+        if (r.status === 401) return;  // ما مسجلش
+        if (!r.ok) { section.style.display = 'none'; return; }
+
+        var d = await r.json();
+        if (!d.recommendations || d.recommendations.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+
+        section.style.display = 'block';
+
+        var h = '';
+        if (d.user_insight) {
+            h += '<div style="background:var(--bg-primary); padding:12px; border-radius:10px; margin-bottom:15px; color:var(--accent-blue); font-size:0.95em;">';
+            h += '🤖 ' + d.user_insight;
+            h += '</div>';
+        }
+
+        h += '<div class="recommendations-grid">';
+        d.recommendations.forEach(function(rec) {
+            h += '<div class="recommendation-item" onclick="showCryptoDetails(\'' + rec.crypto_id + '\')" style="cursor:pointer;">';
+            h += '<div class="rec-symbol">' + (rec.symbol || rec.crypto_id.toUpperCase()) + '</div>';
+            h += '<div class="rec-name">' + rec.crypto_id.replace('-', ' ') + '</div>';
+            h += '<div class="rec-reason">' + (rec.reason || 'Basé sur votre historique') + '</div>';
+            h += '</div>';
+        });
+        h += '</div>';
+
+        c.innerHTML = h;
+    } catch (e) {
+        console.log('Rec error:', e);
+    }
+}
+
+async function refreshRecommendations() {
+    var c = document.getElementById('recommendations-content');
+    c.innerHTML = '<div class="loading">⏳ Analyse AI...</div>';
+    // نمسحو Cache
+    try {
+        // نطلب من جديد
+        var r = await fetch('/api/recommendations');
+        var d = await r.json();
+        var section = document.getElementById('recommendations-section');
+        if (d.recommendations && d.recommendations.length > 0) {
+            section.style.display = 'block';
+            loadRecommendations();
+        } else {
+            c.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:20px;">🤖 Pas assez de données. Interagissez plus avec le site!</div>';
+        }
+    } catch (e) { c.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
+}
         // INIT
         document.getElementById('refresh').addEventListener('click', loadPrices);
         document.getElementById('limit').addEventListener('change', loadPrices);
@@ -784,6 +889,8 @@
         loadGas();
         loadWhales();
         loadSentiment();
+        loadRecommendations();
+        setInterval(loadRecommendations, 600000);  // كل 10 دقائق
         setInterval(loadPrices, 60000);
         setInterval(loadFearGreed, 600000);
         setInterval(loadGas, 60000);
