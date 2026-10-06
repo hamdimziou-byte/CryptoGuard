@@ -21,7 +21,7 @@
         <div class="navbar-links">
             <a href="/">{{ t('home') }}</a>
             <button onclick="toggleTheme()" id="theme-toggle" class="theme-btn">🌙</button>
-            <button id="notif-btn" onclick="requestNotifications()" class="theme-btn" title="Notifications" style="font-size:1.1em;">🔕</button>
+            <button id="notif-btn" onclick="requestNotifications()" class="theme-btn" title="Notifications">🔕</button>
             <select onchange="window.location.href='/set_language/' + this.value" class="lang-selector">
                 {% for code, name in languages.items() %}
                     <option value="{{ code }}" {% if get_locale() == code %}selected{% endif %}>{{ name }}</option>
@@ -77,6 +77,20 @@
         <div class="gas-card">
             <h3 style="color:var(--accent-blue); margin-bottom:15px;">⛽ Ethereum Gas Prices</h3>
             <div id="gas-content"><div class="loading">⏳ ...</div></div>
+        </div>
+    </div>
+
+    <div class="whale-section">
+        <div class="whale-card">
+            <h3 style="color:var(--accent-blue); margin-bottom:15px;">🐋 Whale Alerts</h3>
+            <div id="whale-content"><div class="loading">⏳ ...</div></div>
+        </div>
+    </div>
+
+    <div class="sentiment-section">
+        <div class="sentiment-card">
+            <h3 style="color:var(--accent-blue); margin-bottom:15px;">💬 Market Sentiment</h3>
+            <div id="sentiment-content"><div class="loading">⏳ ...</div></div>
         </div>
     </div>
 
@@ -154,7 +168,6 @@
 
     <footer><p>Powered by CoinGecko • Binance • Kraken • CryptoCompare</p></footer>
 
-    <!-- AI CHAT -->
     <div id="chat-box" class="chat-box">
         <div class="chat-header">
             <strong>💬 CryptoGuard AI</strong>
@@ -167,25 +180,15 @@
         </div>
     </div>
 
-    <!-- ALERT MODAL -->
     <div id="alert-modal" class="alert-modal">
         <div class="alert-modal-content">
             <button onclick="toggleAlertForm()" class="alert-modal-close">×</button>
             <h2>🔔 {{ t('create_alert') }}</h2>
             <form onsubmit="sendAlert(event); return false;" class="alert-form">
                 <label>{{ t('crypto') }}</label>
-                <select id="alert-crypto">
-                    <option value="BTC">Bitcoin (BTC)</option>
-                    <option value="ETH">Ethereum (ETH)</option>
-                    <option value="BNB">BNB</option>
-                    <option value="SOL">Solana (SOL)</option>
-                    <option value="XRP">XRP</option>
-                </select>
+                <select id="alert-crypto"><option value="BTC">Bitcoin</option><option value="ETH">Ethereum</option></select>
                 <label>{{ t('condition') }}</label>
-                <select id="alert-condition">
-                    <option value="above">⬆️ Above</option>
-                    <option value="below">⬇️ Below</option>
-                </select>
+                <select id="alert-condition"><option value="above">⬆️ Above</option><option value="below">⬇️ Below</option></select>
                 <label>{{ t('target_price') }} ($)</label>
                 <input type="number" id="alert-price" placeholder="100000" required>
                 <label>{{ t('current_price') }} ($)</label>
@@ -196,95 +199,82 @@
         </div>
     </div>
 
-    <!-- CRYPTO DETAILS MODAL -->
     <div id="crypto-modal" class="crypto-modal">
         <div class="crypto-modal-content">
             <button onclick="closeCryptoModal()" class="crypto-modal-close">×</button>
-            <div id="crypto-modal-body"><div class="loading">⏳ {{ t('loading') }}...</div></div>
+            <div id="crypto-modal-body"><div class="loading">⏳ ...</div></div>
         </div>
     </div>
 
-    <!-- CONTRACT ANALYZER MODAL -->
     <div id="contract-modal" class="crypto-modal">
         <div class="crypto-modal-content">
             <button onclick="toggleContractAnalyzer()" class="crypto-modal-close">×</button>
             <h2 style="color:var(--accent-blue); margin-bottom:10px;">🔍 Analyze Smart Contract</h2>
-            <p style="color:var(--text-secondary); margin-bottom:20px;">Upload une image d'un smart contract Solidity.</p>
             <div id="contract-upload-area" class="contract-upload-area">
                 <input type="file" id="contract-image-input" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="previewContractImage(event)">
                 <div onclick="document.getElementById('contract-image-input').click()" style="cursor:pointer; padding:40px; text-align:center;">
                     <div style="font-size:3em; margin-bottom:15px;">📸</div>
-                    <p style="color:var(--text-primary); font-weight:600;">Cliquez pour uploader une image</p>
-                    <p style="color:var(--text-muted); font-size:0.9em;">PNG, JPG, WebP (max 5 MB)</p>
+                    <p>Cliquez pour uploader une image</p>
                 </div>
             </div>
             <div id="contract-preview" style="display:none; margin-top:20px;">
                 <img id="contract-preview-img" style="max-width:100%; max-height:300px; border-radius:10px;">
-                <button onclick="analyzeContract()" class="btn-send-alert" style="width:100%; margin-top:15px;">🤖 Analyser avec l'IA</button>
+                <button onclick="analyzeContract()" class="btn-send-alert" style="width:100%; margin-top:15px;">🤖 Analyser</button>
             </div>
             <div id="contract-result" style="display:none; margin-top:20px;"></div>
         </div>
     </div>
 
-    <!-- DCA MODAL -->
     <div id="dca-modal" class="crypto-modal">
         <div class="crypto-modal-content">
             <button onclick="toggleDCA()" class="crypto-modal-close">×</button>
             <h2 style="color:var(--accent-blue); margin-bottom:15px;">📊 DCA Calculator</h2>
-            <div class="dca-form">
-                <label style="color:var(--text-primary); font-weight:600;">Cryptomonnaie</label>
-                <select id="dca-crypto" class="chart-selector" style="width:100%;">
-                    <option value="bitcoin">Bitcoin (BTC)</option>
-                    <option value="ethereum">Ethereum (ETH)</option>
-                    <option value="binancecoin">BNB</option>
-                    <option value="solana">Solana (SOL)</option>
-                </select>
-                <label style="color:var(--text-primary); font-weight:600; margin-top:15px;">Montant mensuel ($)</label>
-                <input type="number" id="dca-amount" value="100" min="1" style="padding:12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-primary);">
-                <label style="color:var(--text-primary); font-weight:600; margin-top:15px;">Durée (mois)</label>
-                <input type="number" id="dca-months" value="12" min="1" max="60" style="padding:12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-primary);">
-                <button onclick="calculateDCA()" class="btn-send-alert" style="width:100%; margin-top:20px;">📊 Calculer</button>
-            </div>
+            <select id="dca-crypto" class="chart-selector" style="width:100%;">
+                <option value="bitcoin">Bitcoin</option>
+                <option value="ethereum">Ethereum</option>
+                <option value="binancecoin">BNB</option>
+                <option value="solana">Solana</option>
+            </select>
+            <input type="number" id="dca-amount" value="100" style="width:100%; padding:12px; margin-top:15px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-primary);">
+            <input type="number" id="dca-months" value="12" style="width:100%; padding:12px; margin-top:15px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-primary);">
+            <button onclick="calculateDCA()" class="btn-send-alert" style="width:100%; margin-top:20px;">Calculer</button>
             <div id="dca-result" style="margin-top:20px;"></div>
         </div>
     </div>
 
-    <!-- AI SIGNALS MODAL -->
     <div id="signals-modal" class="crypto-modal">
         <div class="crypto-modal-content">
             <button onclick="toggleSignals()" class="crypto-modal-close">×</button>
             <h2 style="color:var(--accent-blue); margin-bottom:15px;">🤖 AI Trading Signals</h2>
             <select id="signals-crypto" class="chart-selector" style="width:100%;">
-                <option value="bitcoin">Bitcoin (BTC)</option>
-                <option value="ethereum">Ethereum (ETH)</option>
+                <option value="bitcoin">Bitcoin</option>
+                <option value="ethereum">Ethereum</option>
                 <option value="binancecoin">BNB</option>
-                <option value="solana">Solana (SOL)</option>
+                <option value="solana">Solana</option>
             </select>
-            <button onclick="loadSignals()" class="btn-send-alert" style="width:100%; margin-top:15px;">🤖 Analyser avec AI</button>
+            <button onclick="loadSignals()" class="btn-send-alert" style="width:100%; margin-top:15px;">Analyser</button>
             <div id="signals-result" style="margin-top:20px;"></div>
         </div>
     </div>
 
-    <!-- EXCHANGES MODAL -->
     <div id="exchanges-modal" class="crypto-modal">
         <div class="crypto-modal-content">
             <button onclick="toggleExchanges()" class="crypto-modal-close">×</button>
             <h2 style="color:var(--accent-blue); margin-bottom:15px;">💱 Multi-Exchange Prices</h2>
-            <p style="color:var(--text-secondary); margin-bottom:20px;">Comparez les prix entre différentes plateformes.</p>
             <select id="exchanges-crypto" class="chart-selector" style="width:100%;">
-                <option value="bitcoin">Bitcoin (BTC)</option>
-                <option value="ethereum">Ethereum (ETH)</option>
+                <option value="bitcoin">Bitcoin</option>
+                <option value="ethereum">Ethereum</option>
                 <option value="binancecoin">BNB</option>
-                <option value="solana">Solana (SOL)</option>
+                <option value="solana">Solana</option>
                 <option value="ripple">XRP</option>
             </select>
-            <button onclick="loadExchanges()" class="btn-send-alert" style="width:100%; margin-top:15px;">💱 Comparer</button>
+            <button onclick="loadExchanges()" class="btn-send-alert" style="width:100%; margin-top:15px;">Comparer</button>
             <div id="exchanges-result" style="margin-top:20px;"></div>
         </div>
     </div>
 
     <script>
-        // ═══ THEME ═══
+        // THEME
         function toggleTheme() {
             document.documentElement.classList.toggle('light-mode');
             const isLight = document.documentElement.classList.contains('light-mode');
@@ -299,39 +289,26 @@
             }
         })();
 
-        // ═══ NOTIFICATIONS ═══
+        // NOTIFICATIONS
         async function requestNotifications() {
             if (!('Notification' in window)) { alert('❌ Navigateur non supporté'); return; }
-            if (!('serviceWorker' in navigator)) { alert('❌ Service Worker non supporté'); return; }
             try {
                 const permission = await Notification.requestPermission();
-                if (permission !== 'granted') { alert('⚠️ Notifications refusées'); return; }
+                if (permission !== 'granted') { alert('⚠️ Refusé'); return; }
                 await navigator.serviceWorker.register('/static/service-worker.js');
-                showNotif('🛡️ CryptoGuard', 'Notifications activées!');
+                if (Notification.permission === 'granted') new Notification('🛡️ CryptoGuard', { body: 'Notifications activées!' });
                 const btn = document.getElementById('notif-btn');
-                btn.textContent = '🔔';
-                btn.style.color = 'var(--accent-green)';
+                btn.textContent = '🔔'; btn.style.color = 'var(--accent-green)';
                 localStorage.setItem('notif-enabled', 'true');
-            } catch (error) { alert('❌ Erreur: ' + error.message); }
-        }
-        function showNotif(title, body) {
-            if (Notification.permission === 'granted') {
-                new Notification(title, { body: body, icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="80" font-size="80">🛡️</text></svg>' });
-            }
+            } catch (e) { alert('❌ ' + e.message); }
         }
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/static/service-worker.js').catch(function(err) { console.log('SW error:', err); });
+                navigator.serviceWorker.register('/static/service-worker.js').catch(function(e) { console.log(e); });
             });
         }
-        (function() {
-            if (localStorage.getItem('notif-enabled') === 'true' && Notification.permission === 'granted') {
-                const btn = document.getElementById('notif-btn');
-                if (btn) { btn.textContent = '🔔'; btn.style.color = 'var(--accent-green)'; }
-            }
-        })();
 
-        // ═══ FEAR & GREED ═══
+        // FEAR & GREED
         async function loadFearGreed() {
             var c = document.getElementById('fear-greed-content');
             if (!c) return;
@@ -349,7 +326,7 @@
             } catch (e) { c.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
-        // ═══ INDICATORS ═══
+        // INDICATORS
         async function loadIndicators(id) {
             if (!id) id = document.getElementById('indicators-crypto').value;
             var c = document.getElementById('indicators-content');
@@ -362,7 +339,7 @@
                 var ind = d.indicators, rsi = ind.current_rsi || 0, cross = ind.current_trend || 'none';
                 var rsiC = rsi < 30 ? '#a6e3a1' : (rsi > 70 ? '#f38ba8' : '#f9e2af');
                 var rsiL = rsi < 30 ? 'Oversold' : (rsi > 70 ? 'Overbought' : 'Neutral');
-                var cr = {'golden_cross': {t:'🌟 Golden Cross', c:'#a6e3a1'}, 'death_cross': {t:'💀 Death Cross', c:'#f38ba8'}, 'bullish': {t:'📈 Bullish', c:'#a6e3a1'}, 'bearish': {t:'📉 Bearish', c:'#f38ba8'}, 'none': {t:'➖ Neutral', c:'#f9e2af'}};
+                var cr = {'golden_cross':{t:'🌟 Golden Cross',c:'#a6e3a1'},'death_cross':{t:'💀 Death Cross',c:'#f38ba8'},'bullish':{t:'📈 Bullish',c:'#a6e3a1'},'bearish':{t:'📉 Bearish',c:'#f38ba8'},'none':{t:'➖ Neutral',c:'#f9e2af'}};
                 var ci = cr[cross] || cr['none'];
                 var macd = ind.macd.macd, ml = macd[macd.length - 1] || 0, mc = ml >= 0 ? '#a6e3a1' : '#f38ba8';
                 c.innerHTML = '<div class="indicator-item"><div class="indicator-label">📈 RSI (14)</div>' +
@@ -377,7 +354,7 @@
             } catch (e) { c.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
-        // ═══ GAS ═══
+        // GAS
         async function loadGas() {
             var c = document.getElementById('gas-content');
             if (!c) return;
@@ -400,7 +377,54 @@
             } catch (e) { c.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
-        // ═══ CHART ═══
+        // WHALES
+        async function loadWhales() {
+            var c = document.getElementById('whale-content');
+            if (!c) return;
+            try {
+                var r = await fetch('/api/whales');
+                var d = await r.json();
+                if (d.error) { c.innerHTML = '<div class="error">❌ ' + d.error + '</div>'; return; }
+                var lc = d.level === 'HIGH' ? '#f38ba8' : (d.level === 'MEDIUM' ? '#f9e2af' : '#a6e3a1');
+                var li = d.level === 'HIGH' ? '🚨' : (d.level === 'MEDIUM' ? '⚠️' : '✅');
+                var h = '<div class="whale-stats">';
+                h += '<div class="whale-stat"><div class="whale-label">Total USD</div><div class="whale-value">$' + d.total_usd.toLocaleString('fr-FR', {maximumFractionDigits: 0}) + '</div></div>';
+                h += '<div class="whale-stat"><div class="whale-label">Transactions</div><div class="whale-value">' + d.count + '</div></div>';
+                h += '<div class="whale-stat"><div class="whale-label">Activité</div><div class="whale-value" style="color:' + lc + ';">' + li + ' ' + d.level + '</div></div></div>';
+                if (d.whales && d.whales.length > 0) {
+                    h += '<div style="margin-top:20px;"><div style="color:var(--text-muted); font-size:0.85em; text-transform:uppercase; margin-bottom:10px;">Top Transactions</div>';
+                    d.whales.slice(0, 5).forEach(function(w, i) {
+                        h += '<a href="' + w.url + '" target="_blank" class="whale-tx"><div class="whale-tx-rank">' + (i + 1) + '</div>';
+                        h += '<div style="flex:1;"><div style="font-weight:bold; color:var(--accent-blue);">' + w.value + ' ' + w.symbol + '</div>';
+                        h += '<div style="font-size:0.75em; color:var(--text-muted);">≈ $' + w.usd_value.toLocaleString('fr-FR', {maximumFractionDigits: 0}) + '</div></div>';
+                        h += '<span style="color:var(--accent-blue);">→</span></a>';
+                    });
+                    h += '</div>';
+                }
+                c.innerHTML = h;
+            } catch (e) { c.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
+        }
+
+        // SENTIMENT
+        async function loadSentiment() {
+            var c = document.getElementById('sentiment-content');
+            if (!c) return;
+            try {
+                var r = await fetch('/api/sentiment');
+                var d = await r.json();
+                if (d.error) { c.innerHTML = '<div class="error">❌ ' + d.error + '</div>'; return; }
+                var h = '<div class="sentiment-display">';
+                h += '<div style="font-size:3em; text-align:center;">' + d.emoji + '</div>';
+                h += '<div class="sentiment-label" style="color:' + d.color + ';">' + d.label.replace('_', ' ') + '</div>';
+                h += '<div style="text-align:center; color:var(--text-muted); margin-top:5px;">Score: <strong style="color:' + d.color + ';">' + d.combined_score + '</strong></div></div>';
+                h += '<div class="sentiment-grid">';
+                h += '<div class="sentiment-item"><div class="sentiment-icon">😱</div><div class="sentiment-name">Fear & Greed</div><div class="sentiment-val">' + d.fng_value + '</div></div>';
+                h += '<div class="sentiment-item"><div class="sentiment-icon">📱</div><div class="sentiment-name">Reddit</div><div class="sentiment-val">' + d.reddit_score + '</div></div></div>';
+                c.innerHTML = h;
+            } catch (e) { c.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
+        }
+
+        // CHART
         var priceChart = null;
         async function loadChart(id) {
             if (!id) id = document.getElementById('chart-crypto').value;
@@ -429,7 +453,7 @@
             } catch (e) { console.error(e); }
         }
 
-        // ═══ TOP MOVERS ═══
+        // TOP MOVERS
         async function loadTopMovers() {
             var g = document.getElementById('gainers-list'), l = document.getElementById('losers-list');
             if (!g || !l) return;
@@ -459,7 +483,7 @@
             });
         }
 
-        // ═══ CRYPTO DETAILS ═══
+        // CRYPTO DETAILS
         function closeCryptoModal() { document.getElementById('crypto-modal').style.display = 'none'; }
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
@@ -498,7 +522,7 @@
             } catch (e) { body.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
-        // ═══ CHAT ═══
+        // CHAT
         function toggleChat() { var b = document.getElementById('chat-box'); b.style.display = b.style.display === 'flex' ? 'none' : 'flex'; }
         function addChatMessage(text, isUser) {
             var m = document.getElementById('chat-messages');
@@ -510,8 +534,7 @@
         async function sendMessage() {
             var input = document.getElementById('chat-input'), msg = input.value.trim();
             if (!msg) return;
-            addChatMessage(msg, true);
-            input.value = '';
+            addChatMessage(msg, true); input.value = '';
             var l = document.createElement('div');
             l.id = 'chat-loading'; l.className = 'chat-message ai'; l.textContent = '⏳ ...';
             document.getElementById('chat-messages').appendChild(l);
@@ -523,7 +546,7 @@
             } catch (e) { document.getElementById('chat-loading').remove(); addChatMessage('❌ ' + e.message, false); }
         }
 
-        // ═══ ALERT ═══
+        // ALERT
         function toggleAlertForm() { var m = document.getElementById('alert-modal'); m.style.display = m.style.display === 'flex' ? 'none' : 'flex'; }
         async function sendAlert(e) {
             e.preventDefault();
@@ -545,7 +568,7 @@
             } catch (err) { status.textContent = '❌ ' + err.message; status.style.color = 'var(--accent-red)'; }
         }
 
-        // ═══ PRICES ═══
+        // PRICES
         async function loadPrices() {
             document.getElementById('error').style.display = 'none';
             try {
@@ -573,13 +596,12 @@
                 r += '<td class="' + cc + '">' + (ch >= 0 ? '▲' : '▼') + ' ' + ch.toFixed(2) + '%</td>';
                 r += '<td>' + sym + coin.market_cap.toLocaleString('fr-FR') + '</td>';
                 r += '<td style="color:' + rc + '; font-weight:bold;">' + (coin.risk_score || 0) + '/100</td>';
-                r += '<td><button onclick="event.stopPropagation(); addToWatchlist(\'' + coin.id + '\', \'' + coin.symbol + '\')" class="star-btn">⭐</button></td>';
-                r += '</tr>';
+                r += '<td><button onclick="event.stopPropagation(); addToWatchlist(\'' + coin.id + '\', \'' + coin.symbol + '\')" class="star-btn">⭐</button></td></tr>';
                 tbody.innerHTML += r;
             });
         }
 
-        // ═══ WATCHLIST ═══
+        // WATCHLIST
         async function addToWatchlist(id, sym) {
             try {
                 var r = await fetch('/watchlist/add/' + id, {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: 'symbol=' + sym});
@@ -588,7 +610,7 @@
             } catch (e) { alert('Erreur'); }
         }
 
-        // ═══ NEWS ═══
+        // NEWS
         async function loadNews() {
             var c = document.getElementById('news-container');
             try {
@@ -608,12 +630,12 @@
             } catch (e) { c.innerHTML = '<div class="error">❌</div>'; }
         }
 
-        // ═══ EXPORT CSV ═══
+        // EXPORT CSV
         function exportCSV() {
             window.location.href = '/api/export/csv?limit=' + document.getElementById('limit').value + '&currency=' + document.getElementById('currency').value;
         }
 
-        // ═══ CONTRACT ANALYZER ═══
+        // CONTRACT ANALYZER
         function toggleContractAnalyzer() {
             var m = document.getElementById('contract-modal');
             m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
@@ -635,7 +657,7 @@
             if (!file) return;
             var rd = document.getElementById('contract-result');
             rd.style.display = 'block';
-            rd.innerHTML = '<div class="loading">⏳ Analyse...</div>';
+            rd.innerHTML = '<div class="loading">⏳ ...</div>';
             var fd = new FormData();
             fd.append('image', file);
             try {
@@ -646,7 +668,7 @@
             } catch (e) { rd.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
-        // ═══ DCA ═══
+        // DCA
         function toggleDCA() {
             var m = document.getElementById('dca-modal');
             m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
@@ -677,7 +699,7 @@
             } catch (e) { rd.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
-        // ═══ AI SIGNALS ═══
+        // AI SIGNALS
         function toggleSignals() {
             var m = document.getElementById('signals-modal');
             m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
@@ -686,7 +708,7 @@
         async function loadSignals() {
             var id = document.getElementById('signals-crypto').value;
             var rd = document.getElementById('signals-result');
-            rd.innerHTML = '<div class="loading">⏳ Analyse AI...</div>';
+            rd.innerHTML = '<div class="loading">⏳ ...</div>';
             try {
                 var r = await fetch('/api/signals/' + id);
                 var d = await r.json();
@@ -695,8 +717,7 @@
                 var si = {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '🟡'};
                 var rc = {'LOW': '#a6e3a1', 'MEDIUM': '#f9e2af', 'HIGH': '#f38ba8'};
                 var sig = (d.signal || 'HOLD').toUpperCase();
-                var col = sc[sig] || '#f9e2af';
-                var icon = si[sig] || '🟡';
+                var col = sc[sig] || '#f9e2af', icon = si[sig] || '🟡';
                 var risk = (d.risk_level || 'MEDIUM').toUpperCase();
                 var h = '<div class="signal-box" style="border-color:' + col + ';">';
                 h += '<div style="font-size:3em; text-align:center;">' + icon + '</div>';
@@ -704,14 +725,13 @@
                 h += '<div style="text-align:center; color:var(--text-muted);">Confidence: <strong style="color:' + col + ';">' + (d.confidence || 0) + '%</strong></div></div>';
                 h += '<div class="signal-info"><div>⏰ ' + (d.timeframe || 'medium').toUpperCase() + '</div>';
                 h += '<div>⚠️ Risk: <strong style="color:' + (rc[risk] || '#f9e2af') + ';">' + risk + '</strong></div></div>';
-                if (d.reasoning) h += '<div class="signal-reasoning"><h4 style="color:var(--accent-blue); margin-bottom:10px;">💡 Raisonnement</h4><p style="line-height:1.6; color:var(--text-secondary);">' + d.reasoning + '</p></div>';
-                if (d.key_points) { h += '<div class="signal-points"><h4 style="color:var(--accent-blue); margin-bottom:10px;">📌 Points</h4>'; d.key_points.forEach(function(p) { h += '<div class="signal-point">• ' + p + '</div>'; }); h += '</div>'; }
+                if (d.reasoning) h += '<div class="signal-reasoning"><h4 style="color:var(--accent-blue);">💡 Raisonnement</h4><p>' + d.reasoning + '</p></div>';
                 h += '<div style="margin-top:15px; padding:10px; background:rgba(243,139,168,0.1); border-radius:8px; color:var(--accent-red); font-size:0.85em; text-align:center;">⚠️ Pas un conseil financier</div>';
                 rd.innerHTML = h;
             } catch (e) { rd.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
-        // ═══ EXCHANGES ═══
+        // EXCHANGES
         function toggleExchanges() {
             var m = document.getElementById('exchanges-modal');
             m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
@@ -729,50 +749,24 @@
                 if (d.spread > 0.5) {
                     h += '<div class="exchange-spread"><div style="text-align:center;">';
                     h += '<div style="font-size:1.5em; font-weight:bold; color:#a6e3a1;">💡 Arbitrage!</div>';
-                    h += '<div style="color:var(--text-secondary); margin-top:5px;">Spread: <strong style="color:#a6e3a1;">' + d.spread + '%</strong></div>';
-                    h += '<div style="color:var(--text-secondary); font-size:0.85em; margin-top:5px;">Acheter sur <strong>' + d.cheapest + '</strong> → Vendre sur <strong>' + d.expensive + '</strong></div>';
-                    h += '</div></div>';
+                    h += '<div>Spread: <strong style="color:#a6e3a1;">' + d.spread + '%</strong></div></div></div>';
                 }
                 h += '<div class="exchanges-table">';
                 d.exchanges.forEach(function(ex) {
                     var isCh = ex.name === d.cheapest, isEx = ex.name === d.expensive;
                     var bc = isCh ? '#a6e3a1' : (isEx ? '#f38ba8' : 'transparent');
-                    var bd = isCh ? '<span class="exchange-badge" style="background:#a6e3a1; color:#1e1e2e;">💚 Meilleur prix</span>' : (isEx ? '<span class="exchange-badge" style="background:#f38ba8; color:#1e1e2e;">🔴 Plus cher</span>' : '');
+                    var bd = isCh ? '<span class="exchange-badge" style="background:#a6e3a1;">💚 Meilleur</span>' : (isEx ? '<span class="exchange-badge" style="background:#f38ba8;">🔴 Cher</span>' : '');
                     h += '<div class="exchange-row" style="border-left:3px solid ' + bc + ';">';
-                    h += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><strong style="font-size:1.1em;">' + ex.name + '</strong>' + bd + '</div>';
-                    h += '<div style="font-size:1.5em; font-weight:bold; color:var(--accent-blue);">$' + ex.price.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</div>';
-                    var chC = ex.change_24h >= 0 ? '#a6e3a1' : '#f38ba8';
-                    h += '<div style="font-size:0.85em; color:var(--text-muted); margin-top:5px;">24h: <strong style="color:' + chC + ';">' + (ex.change_24h >= 0 ? '+' : '') + ex.change_24h.toFixed(2) + '%</strong> • Vol: $' + (ex.volume_24h / 1e6).toFixed(1) + 'M</div>';
-                    h += '<a href="' + ex.url + '" target="_blank" style="display:inline-block; margin-top:10px; color:var(--accent-blue); text-decoration:none; font-size:0.9em;">Trader →</a>';
-                    h += '</div>';
+                    h += '<div style="display:flex; justify-content:space-between;"><strong>' + ex.name + '</strong>' + bd + '</div>';
+                    h += '<div style="font-size:1.5em; font-weight:bold; color:var(--accent-blue);">$' + ex.price.toLocaleString('fr-FR') + '</div>';
+                    h += '<a href="' + ex.url + '" target="_blank" style="color:var(--accent-blue);">Trader →</a></div>';
                 });
                 h += '</div>';
                 rd.innerHTML = h;
             } catch (e) { rd.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
-        // ═══ PRICE WATCHER ═══
-        async function checkPriceAlerts() {
-            if (Notification.permission !== 'granted') return;
-            try {
-                var r = await fetch('/api/prices?limit=20&currency=usd');
-                var d = await r.json();
-                if (!d.data) return;
-                var last = JSON.parse(localStorage.getItem('last-prices') || '{}');
-                d.data.forEach(function(coin) {
-                    var sym = coin.symbol.toUpperCase();
-                    var ch = coin.price_change_percentage_24h || 0;
-                    if (last[sym] && Math.abs(ch) >= 8) {
-                        showNotif((ch > 0 ? '🚀 ' : '📉 ') + sym + ' ' + (ch > 0 ? '+' : '') + ch.toFixed(2) + '%', '$' + coin.current_price.toLocaleString());
-                    }
-                    last[sym] = coin.current_price;
-                });
-                localStorage.setItem('last-prices', JSON.stringify(last));
-            } catch (e) { console.error(e); }
-        }
-        setInterval(checkPriceAlerts, 300000);
-
-        // ═══ INIT ═══
+        // INIT
         document.getElementById('refresh').addEventListener('click', loadPrices);
         document.getElementById('limit').addEventListener('change', loadPrices);
         document.getElementById('currency').addEventListener('change', loadPrices);
@@ -788,10 +782,13 @@
         loadFearGreed();
         loadIndicators('bitcoin');
         loadGas();
+        loadWhales();
+        loadSentiment();
         setInterval(loadPrices, 60000);
         setInterval(loadFearGreed, 600000);
         setInterval(loadGas, 60000);
-        setInterval(function() { loadIndicators(document.getElementById('indicators-crypto').value); }, 300000);
+        setInterval(loadWhales, 120000);
+        setInterval(loadSentiment, 300000);
     </script>
 </body>
 </html>
