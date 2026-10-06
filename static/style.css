@@ -1649,3 +1649,35 @@ html.light-mode .oauth-google:hover {
     color: var(--text-primary);
     font-size: 0.95em;
 }
+/* ═══ MULTI-EXCHANGE ═══ */
+.exchange-spread {
+    background: linear-gradient(135deg, rgba(166,227,161,0.15), rgba(137,180,250,0.15));
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid var(--accent-green);
+}
+
+.exchanges-table {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.exchange-row {
+    background: var(--bg-primary);
+    padding: 15px;
+    border-radius: 10px;
+    transition: transform 0.3s;
+}
+
+.exchange-row:hover {
+    transform: translateX(5px);
+}
+
+.exchange-badge {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75em;
+    font-weight: bold;
+}

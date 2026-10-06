@@ -642,7 +642,93 @@ def api_dca():
     except requests.RequestException as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/exchanges/<crypto_id>")
+def api_exchanges(crypto_id):
+    """API: Multi-Exchange Prices (Binance + Kraken)"""
+    # Mapping من CoinGecko ID إلى symbols
+    binance_map = {
+        "bitcoin": "BTCUSDT", "ethereum": "ETHUSDT",
+        "binancecoin": "BNBUSDT", "solana": "SOLUSDT",
+        "ripple": "XRPUSDT", "cardano": "ADAUSDT",
+        "dogecoin": "DOGEUSDT", "tron": "TRXUSDT",
+        "polkadot": "DOTUSDT", "chainlink": "LINKUSDT",
+        "matic-network": "MATICUSDT", "avalanche-2": "AVAXUSDT",
+        "litecoin": "LTCUSDT", "uniswap": "UNIUSDT",
+        "stellar": "XLMUSDT"
+    }
 
+    kraken_map = {
+        "bitcoin": "XBTUSDT", "ethereum": "ETHUSDT",
+        "binancecoin": "BNBUSDT", "solana": "SOLUSDT",
+        "ripple": "XRPUSDT", "cardano": "ADAUSDT",
+        "dogecoin": "DOGEUSDT", "tron": "TRXUSDT",
+        "polkadot": "DOTUSDT", "chainlink": "LINKUSDT",
+        "matic-network": "MATICUSDT", "avalanche-2": "AVAXUSDT",
+        "litecoin": "LTCUSDT", "uniswap": "UNIUSDT",
+        "stellar": "XLMUSDT"
+    }
+
+    exchanges = []
+
+    # Binance
+    binance_symbol = binance_map.get(crypto_id)
+    if binance_symbol:
+        try:
+            url = "https://api.binance.com/api/v3/ticker/24hr"
+            response = requests.get(url, params={"symbol": binance_symbol}, timeout=8)
+            if response.ok:
+                data = response.json()
+                exchanges.append({
+                    "name": "Binance",
+                    "price": float(data["lastPrice"]),
+                    "volume_24h": float(data["quoteVolume"]),
+                    "change_24h": float(data["priceChangePercent"]),
+                    "url": f"https://www.binance.com/en/trade/{binance_symbol}"
+                })
+        except Exception as e:
+            print(f"Binance error: {e}")
+
+    # Kraken
+    kraken_symbol = kraken_map.get(crypto_id)
+    if kraken_symbol:
+        try:
+            url = "https://api.kraken.com/0/public/Ticker"
+            response = requests.get(url, params={"pair": kraken_symbol}, timeout=8)
+            if response.ok:
+                data = response.json()
+                if data.get("result"):
+                    pair_data = list(data["result"].values())[0]
+                    price = float(pair_data["c"][0])
+                    volume = float(pair_data["v"][1])
+                    open_price = float(pair_data["o"])
+                    change = ((price - open_price) / open_price * 100) if open_price > 0 else 0
+                    exchanges.append({
+                        "name": "Kraken",
+                        "price": price,
+                        "volume_24h": volume * price,
+                        "change_24h": round(change, 2),
+                        "url": f"https://pro.kraken.com/app/trade/{kraken_symbol.lower()}"
+                    })
+        except Exception as e:
+            print(f"Kraken error: {e}")
+
+    if not exchanges:
+        return jsonify({"error": "Aucune donnée disponible"}), 500
+
+    # ترتيب حسب السعر
+    exchanges_sorted = sorted(exchanges, key=lambda x: x["price"])
+
+    cheapest = exchanges_sorted[0]
+    expensive = exchanges_sorted[-1]
+    spread = ((expensive["price"] - cheapest["price"]) / cheapest["price"] * 100) if cheapest["price"] > 0 else 0
+
+    return jsonify({
+        "crypto_id": crypto_id,
+        "exchanges": exchanges_sorted,
+        "cheapest": cheapest["name"],
+        "expensive": expensive["name"],
+        "spread": round(spread, 3)
+    })
 # ═══════════════════════════════════════════════════════
 #  API: AI TRADING SIGNALS
 # ═══════════════════════════════════════════════════════

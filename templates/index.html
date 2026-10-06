@@ -29,6 +29,7 @@
             <a href="#" onclick="toggleContractAnalyzer(); return false;">🔍 Analyzer</a>
             <a href="#" onclick="toggleDCA(); return false;">📊 DCA</a>
             <a href="#" onclick="toggleSignals(); return false;">🤖 AI Signals</a>
+            <a href="#" onclick="toggleExchanges(); return false;">💱 Exchanges</a>
             {% if current_user.is_authenticated %}
                 <a href="/portfolio">💼 {{ t('portfolio') }}</a>
                 <a href="/watchlist">⭐ {{ t('watchlist') }}</a>
@@ -244,7 +245,25 @@
             <div id="dca-result" style="margin-top:20px;"></div>
         </div>
     </div>
-
+<!-- EXCHANGES MODAL -->
+<div id="exchanges-modal" class="crypto-modal">
+    <div class="crypto-modal-content">
+        <button onclick="toggleExchanges()" class="crypto-modal-close">×</button>
+        <h2 style="color:var(--accent-blue); margin-bottom:15px;">💱 Multi-Exchange Prices</h2>
+        <p style="color:var(--text-secondary); margin-bottom:20px;">
+            Comparez les prix entre différentes plateformes.
+        </p>
+        <select id="exchanges-crypto" class="chart-selector" style="width:100%;">
+            <option value="bitcoin">Bitcoin (BTC)</option>
+            <option value="ethereum">Ethereum (ETH)</option>
+            <option value="binancecoin">BNB</option>
+            <option value="solana">Solana (SOL)</option>
+            <option value="ripple">XRP</option>
+        </select>
+        <button onclick="loadExchanges()" class="btn-send-alert" style="width:100%; margin-top:15px;">💱 Comparer</button>
+        <div id="exchanges-result" style="margin-top:20px;"></div>
+    </div>
+</div>
     <!-- AI SIGNALS MODAL -->
     <div id="signals-modal" class="crypto-modal">
         <div class="crypto-modal-content">
@@ -718,7 +737,70 @@
                 resultDiv.innerHTML = html;
             } catch (error) { resultDiv.innerHTML = '<div class="error">❌ ' + error.message + '</div>'; }
         }
+// ═══ MULTI-EXCHANGE ═══
+function toggleExchanges() {
+    var m = document.getElementById('exchanges-modal');
+    m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+    document.getElementById('exchanges-result').innerHTML = '';
+}
 
+async function loadExchanges() {
+    var cryptoId = document.getElementById('exchanges-crypto').value;
+    var resultDiv = document.getElementById('exchanges-result');
+    resultDiv.innerHTML = '<div class="loading">⏳ Comparaison...</div>';
+
+    try {
+        var response = await fetch('/api/exchanges/' + cryptoId);
+        var data = await response.json();
+
+        if (data.error) {
+            resultDiv.innerHTML = '<div class="error">❌ ' + data.error + '</div>';
+            return;
+        }
+
+        var html = '';
+
+        // Summary: Spread
+        if (data.spread > 0.5) {
+            html += '<div class="exchange-spread">';
+            html += '<div style="text-align:center;">';
+            html += '<div style="font-size:1.5em; font-weight:bold; color:#a6e3a1;">💡 Arbitrage!</div>';
+            html += '<div style="color:var(--text-secondary); font-size:0.9em; margin-top:5px;">Spread: <strong style="color:#a6e3a1;">' + data.spread + '%</strong></div>';
+            html += '<div style="color:var(--text-secondary); font-size:0.85em; margin-top:5px;">Acheter sur <strong>' + data.cheapest + '</strong> → Vendre sur <strong>' + data.expensive + '</strong></div>';
+            html += '</div></div>';
+        }
+
+        // Table des exchanges
+        html += '<div class="exchanges-table">';
+        data.exchanges.forEach(function(ex, i) {
+            var isCheapest = ex.name === data.cheapest;
+            var isExpensive = ex.name === data.expensive;
+            var borderColor = isCheapest ? '#a6e3a1' : (isExpensive ? '#f38ba8' : 'transparent');
+            var badge = '';
+            if (isCheapest) badge = '<span class="exchange-badge" style="background:#a6e3a1; color:#1e1e2e;">💚 Meilleur prix</span>';
+            if (isExpensive) badge = '<span class="exchange-badge" style="background:#f38ba8; color:#1e1e2e;">🔴 Plus cher</span>';
+
+            html += '<div class="exchange-row" style="border-left:3px solid ' + borderColor + ';">';
+            html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">';
+            html += '<strong style="font-size:1.1em;">' + ex.name + '</strong>';
+            html += badge;
+            html += '</div>';
+            html += '<div style="font-size:1.5em; font-weight:bold; color:var(--accent-blue);">$' + ex.price.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</div>';
+            html += '<div style="font-size:0.85em; color:var(--text-muted); margin-top:5px;">';
+            var chgColor = ex.change_24h >= 0 ? '#a6e3a1' : '#f38ba8';
+            html += '24h: <strong style="color:' + chgColor + ';">' + (ex.change_24h >= 0 ? '+' : '') + ex.change_24h.toFixed(2) + '%</strong>';
+            html += ' • Vol: $' + (ex.volume_24h / 1e6).toFixed(1) + 'M';
+            html += '</div>';
+            html += '<a href="' + ex.url + '" target="_blank" style="display:inline-block; margin-top:10px; color:var(--accent-blue); text-decoration:none; font-size:0.9em;">Trader →</a>';
+            html += '</div>';
+        });
+        html += '</div>';
+
+        resultDiv.innerHTML = html;
+    } catch (error) {
+        resultDiv.innerHTML = '<div class="error">❌ ' + error.message + '</div>';
+    }
+}
         // ═══ INIT ═══
         document.getElementById('refresh').addEventListener('click', loadPrices);
         document.getElementById('limit').addEventListener('change', loadPrices);
