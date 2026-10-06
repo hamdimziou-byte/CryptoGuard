@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🛡️ CryptoGuard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#89b4fa">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         (function() {
@@ -19,6 +21,7 @@
         <div class="navbar-links">
             <a href="/">{{ t('home') }}</a>
             <button onclick="toggleTheme()" id="theme-toggle" class="theme-btn">🌙</button>
+            <button id="notif-btn" onclick="requestNotifications()" class="theme-btn" title="Notifications" style="font-size:1.1em;">🔕</button>
             <select onchange="window.location.href='/set_language/' + this.value" class="lang-selector">
                 {% for code, name in languages.items() %}
                     <option value="{{ code }}" {% if get_locale() == code %}selected{% endif %}>{{ name }}</option>
@@ -149,7 +152,7 @@
         <div id="news-container" class="news-grid"><div class="loading">⏳ ...</div></div>
     </div>
 
-    <footer><p>Powered by CoinGecko • Binance • CryptoCompare</p></footer>
+    <footer><p>Powered by CoinGecko • Binance • Kraken • CryptoCompare</p></footer>
 
     <!-- AI CHAT -->
     <div id="chat-box" class="chat-box">
@@ -245,25 +248,7 @@
             <div id="dca-result" style="margin-top:20px;"></div>
         </div>
     </div>
-<!-- EXCHANGES MODAL -->
-<div id="exchanges-modal" class="crypto-modal">
-    <div class="crypto-modal-content">
-        <button onclick="toggleExchanges()" class="crypto-modal-close">×</button>
-        <h2 style="color:var(--accent-blue); margin-bottom:15px;">💱 Multi-Exchange Prices</h2>
-        <p style="color:var(--text-secondary); margin-bottom:20px;">
-            Comparez les prix entre différentes plateformes.
-        </p>
-        <select id="exchanges-crypto" class="chart-selector" style="width:100%;">
-            <option value="bitcoin">Bitcoin (BTC)</option>
-            <option value="ethereum">Ethereum (ETH)</option>
-            <option value="binancecoin">BNB</option>
-            <option value="solana">Solana (SOL)</option>
-            <option value="ripple">XRP</option>
-        </select>
-        <button onclick="loadExchanges()" class="btn-send-alert" style="width:100%; margin-top:15px;">💱 Comparer</button>
-        <div id="exchanges-result" style="margin-top:20px;"></div>
-    </div>
-</div>
+
     <!-- AI SIGNALS MODAL -->
     <div id="signals-modal" class="crypto-modal">
         <div class="crypto-modal-content">
@@ -277,6 +262,24 @@
             </select>
             <button onclick="loadSignals()" class="btn-send-alert" style="width:100%; margin-top:15px;">🤖 Analyser avec AI</button>
             <div id="signals-result" style="margin-top:20px;"></div>
+        </div>
+    </div>
+
+    <!-- EXCHANGES MODAL -->
+    <div id="exchanges-modal" class="crypto-modal">
+        <div class="crypto-modal-content">
+            <button onclick="toggleExchanges()" class="crypto-modal-close">×</button>
+            <h2 style="color:var(--accent-blue); margin-bottom:15px;">💱 Multi-Exchange Prices</h2>
+            <p style="color:var(--text-secondary); margin-bottom:20px;">Comparez les prix entre différentes plateformes.</p>
+            <select id="exchanges-crypto" class="chart-selector" style="width:100%;">
+                <option value="bitcoin">Bitcoin (BTC)</option>
+                <option value="ethereum">Ethereum (ETH)</option>
+                <option value="binancecoin">BNB</option>
+                <option value="solana">Solana (SOL)</option>
+                <option value="ripple">XRP</option>
+            </select>
+            <button onclick="loadExchanges()" class="btn-send-alert" style="width:100%; margin-top:15px;">💱 Comparer</button>
+            <div id="exchanges-result" style="margin-top:20px;"></div>
         </div>
     </div>
 
@@ -296,130 +299,139 @@
             }
         })();
 
+        // ═══ NOTIFICATIONS ═══
+        async function requestNotifications() {
+            if (!('Notification' in window)) { alert('❌ Navigateur non supporté'); return; }
+            if (!('serviceWorker' in navigator)) { alert('❌ Service Worker non supporté'); return; }
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') { alert('⚠️ Notifications refusées'); return; }
+                await navigator.serviceWorker.register('/static/service-worker.js');
+                showNotif('🛡️ CryptoGuard', 'Notifications activées!');
+                const btn = document.getElementById('notif-btn');
+                btn.textContent = '🔔';
+                btn.style.color = 'var(--accent-green)';
+                localStorage.setItem('notif-enabled', 'true');
+            } catch (error) { alert('❌ Erreur: ' + error.message); }
+        }
+        function showNotif(title, body) {
+            if (Notification.permission === 'granted') {
+                new Notification(title, { body: body, icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="80" font-size="80">🛡️</text></svg>' });
+            }
+        }
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/static/service-worker.js').catch(function(err) { console.log('SW error:', err); });
+            });
+        }
+        (function() {
+            if (localStorage.getItem('notif-enabled') === 'true' && Notification.permission === 'granted') {
+                const btn = document.getElementById('notif-btn');
+                if (btn) { btn.textContent = '🔔'; btn.style.color = 'var(--accent-green)'; }
+            }
+        })();
+
         // ═══ FEAR & GREED ═══
         async function loadFearGreed() {
-            var container = document.getElementById('fear-greed-content');
-            if (!container) return;
+            var c = document.getElementById('fear-greed-content');
+            if (!c) return;
             try {
-                var response = await fetch('/api/fear-greed');
-                var data = await response.json();
-                if (data.error) { container.innerHTML = '<div class="error">❌ ' + data.error + '</div>'; return; }
-                var html = '<div class="fg-gauge">';
-                html += '<div class="fg-value" style="color:' + data.color + ';">';
-                html += '<span style="font-size:3em;">' + data.emoji + '</span>';
-                html += '<div style="font-size:2.5em; font-weight:bold; margin:10px 0;">' + data.value + '</div>';
-                html += '<div style="font-size:1.2em; font-weight:600;">' + data.classification + '</div>';
-                html += '</div>';
-                html += '<div class="fg-bar-container"><div class="fg-bar">';
-                html += '<div class="fg-bar-fill" style="width:' + data.value + '%; background:linear-gradient(90deg, #f38ba8, #f9e2af, #a6e3a1);"></div>';
-                html += '</div>';
-                html += '<div class="fg-labels"><span>😱 0 (Fear)</span><span>😐 50 (Neutral)</span><span>🤑 100 (Greed)</span></div>';
-                html += '</div></div>';
-                container.innerHTML = html;
-            } catch (error) { container.innerHTML = '<div class="error">❌ ' + error.message + '</div>'; }
+                var r = await fetch('/api/fear-greed');
+                var d = await r.json();
+                if (d.error) { c.innerHTML = '<div class="error">❌ ' + d.error + '</div>'; return; }
+                c.innerHTML = '<div class="fg-gauge"><div class="fg-value" style="color:' + d.color + ';">' +
+                    '<span style="font-size:3em;">' + d.emoji + '</span>' +
+                    '<div style="font-size:2.5em; font-weight:bold; margin:10px 0;">' + d.value + '</div>' +
+                    '<div style="font-size:1.2em; font-weight:600;">' + d.classification + '</div></div>' +
+                    '<div class="fg-bar-container"><div class="fg-bar">' +
+                    '<div class="fg-bar-fill" style="width:' + d.value + '%; background:linear-gradient(90deg, #f38ba8, #f9e2af, #a6e3a1);"></div>' +
+                    '</div><div class="fg-labels"><span>😱 0</span><span>😐 50</span><span>🤑 100</span></div></div></div>';
+            } catch (e) { c.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
         // ═══ INDICATORS ═══
-        async function loadIndicators(cryptoId) {
-            if (!cryptoId) cryptoId = document.getElementById('indicators-crypto').value;
-            var container = document.getElementById('indicators-content');
-            if (!container) return;
-            container.innerHTML = '<div class="loading">⏳ ...</div>';
+        async function loadIndicators(id) {
+            if (!id) id = document.getElementById('indicators-crypto').value;
+            var c = document.getElementById('indicators-content');
+            if (!c) return;
+            c.innerHTML = '<div class="loading">⏳ ...</div>';
             try {
-                var response = await fetch('/api/indicators/' + cryptoId + '?days=90');
-                var data = await response.json();
-                if (data.error) { container.innerHTML = '<div class="error">❌ ' + data.error + '</div>'; return; }
-                var ind = data.indicators;
-                var rsi = ind.current_rsi || 0;
-                var cross = ind.current_trend || 'none';
-                var rsiColor = '#f9e2af';
-                var rsiLabel = 'Neutral';
-                if (rsi < 30) { rsiColor = '#a6e3a1'; rsiLabel = 'Oversold (Buy)'; }
-                else if (rsi > 70) { rsiColor = '#f38ba8'; rsiLabel = 'Overbought (Sell)'; }
-                var crossInfo = {
-                    'golden_cross': { text: '🌟 Golden Cross', color: '#a6e3a1', desc: 'Bullish' },
-                    'death_cross': { text: '💀 Death Cross', color: '#f38ba8', desc: 'Bearish' },
-                    'bullish': { text: '📈 Bullish', color: '#a6e3a1', desc: 'Uptrend' },
-                    'bearish': { text: '📉 Bearish', color: '#f38ba8', desc: 'Downtrend' },
-                    'none': { text: '➖ Neutral', color: '#f9e2af', desc: 'No trend' }
-                };
-                var ci = crossInfo[cross] || crossInfo['none'];
-                var html = '<div class="indicator-item"><div class="indicator-label">📈 RSI (14)</div>';
-                html += '<div class="indicator-value" style="color:' + rsiColor + ';">' + rsi.toFixed(2) + '</div>';
-                html += '<div class="indicator-desc" style="color:' + rsiColor + ';">' + rsiLabel + '</div>';
-                html += '<div class="rsi-bar"><div class="rsi-marker" style="left:' + Math.min(rsi, 100) + '%;"></div></div></div>';
-                html += '<div class="indicator-item"><div class="indicator-label">🎯 Trend</div>';
-                html += '<div class="indicator-value" style="color:' + ci.color + ';">' + ci.text + '</div>';
-                html += '<div class="indicator-desc" style="color:' + ci.color + ';">' + ci.desc + '</div></div>';
-                var macd = ind.macd.macd;
-                var macdLast = macd[macd.length - 1] || 0;
-                var macdColor = macdLast >= 0 ? '#a6e3a1' : '#f38ba8';
-                html += '<div class="indicator-item"><div class="indicator-label">📊 MACD</div>';
-                html += '<div class="indicator-value" style="color:' + macdColor + ';">' + macdLast.toFixed(4) + '</div>';
-                html += '<div class="indicator-desc" style="color:' + macdColor + ';">' + (macdLast >= 0 ? 'Bullish' : 'Bearish') + '</div></div>';
-                container.innerHTML = html;
-            } catch (error) { container.innerHTML = '<div class="error">❌ ' + error.message + '</div>'; }
+                var r = await fetch('/api/indicators/' + id + '?days=90');
+                var d = await r.json();
+                if (d.error) { c.innerHTML = '<div class="error">❌ ' + d.error + '</div>'; return; }
+                var ind = d.indicators, rsi = ind.current_rsi || 0, cross = ind.current_trend || 'none';
+                var rsiC = rsi < 30 ? '#a6e3a1' : (rsi > 70 ? '#f38ba8' : '#f9e2af');
+                var rsiL = rsi < 30 ? 'Oversold' : (rsi > 70 ? 'Overbought' : 'Neutral');
+                var cr = {'golden_cross': {t:'🌟 Golden Cross', c:'#a6e3a1'}, 'death_cross': {t:'💀 Death Cross', c:'#f38ba8'}, 'bullish': {t:'📈 Bullish', c:'#a6e3a1'}, 'bearish': {t:'📉 Bearish', c:'#f38ba8'}, 'none': {t:'➖ Neutral', c:'#f9e2af'}};
+                var ci = cr[cross] || cr['none'];
+                var macd = ind.macd.macd, ml = macd[macd.length - 1] || 0, mc = ml >= 0 ? '#a6e3a1' : '#f38ba8';
+                c.innerHTML = '<div class="indicator-item"><div class="indicator-label">📈 RSI (14)</div>' +
+                    '<div class="indicator-value" style="color:' + rsiC + ';">' + rsi.toFixed(2) + '</div>' +
+                    '<div class="indicator-desc" style="color:' + rsiC + ';">' + rsiL + '</div>' +
+                    '<div class="rsi-bar"><div class="rsi-marker" style="left:' + Math.min(rsi, 100) + '%;"></div></div></div>' +
+                    '<div class="indicator-item"><div class="indicator-label">🎯 Trend</div>' +
+                    '<div class="indicator-value" style="color:' + ci.c + ';">' + ci.t + '</div></div>' +
+                    '<div class="indicator-item"><div class="indicator-label">📊 MACD</div>' +
+                    '<div class="indicator-value" style="color:' + mc + ';">' + ml.toFixed(4) + '</div>' +
+                    '<div class="indicator-desc" style="color:' + mc + ';">' + (ml >= 0 ? 'Bullish' : 'Bearish') + '</div></div>';
+            } catch (e) { c.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
         // ═══ GAS ═══
         async function loadGas() {
-            var container = document.getElementById('gas-content');
-            if (!container) return;
+            var c = document.getElementById('gas-content');
+            if (!c) return;
             try {
-                var response = await fetch('/api/gas');
-                var data = await response.json();
-                if (data.error) { container.innerHTML = '<div class="error">❌ ' + data.error + '</div>'; return; }
+                var r = await fetch('/api/gas');
+                var d = await r.json();
+                if (d.error) { c.innerHTML = '<div class="error">❌ ' + d.error + '</div>'; return; }
                 var icons = { slow: '🐢', standard: '🚗', fast: '🚀' };
                 var colors = { slow: '#a6e3a1', standard: '#f9e2af', fast: '#f38ba8' };
-                var html = '<div class="gas-grid">';
-                data.speeds.forEach(function(s) {
-                    var name = s.name.toLowerCase();
-                    var icon = icons[name] || '⚡';
-                    var color = colors[name] || '#89b4fa';
-                    html += '<div class="gas-item"><div class="gas-label">' + icon + ' ' + s.name.toUpperCase() + '</div>';
-                    html += '<div class="gas-price" style="color:' + color + ';">' + s.max_fee + ' <small>gwei</small></div>';
-                    html += '<div class="gas-usd">💵 $' + (s.usd_transfer || 0).toFixed(3) + ' (transfer)</div>';
-                    if (s.usd_swap) html += '<div class="gas-usd">🔄 $' + s.usd_swap.toFixed(3) + ' (swap)</div>';
-                    html += '</div>';
+                var h = '<div class="gas-grid">';
+                d.speeds.forEach(function(s) {
+                    var n = s.name.toLowerCase();
+                    h += '<div class="gas-item"><div class="gas-label">' + (icons[n] || '⚡') + ' ' + s.name.toUpperCase() + '</div>' +
+                        '<div class="gas-price" style="color:' + (colors[n] || '#89b4fa') + ';">' + s.max_fee + ' <small>gwei</small></div>' +
+                        '<div class="gas-usd">💵 $' + (s.usd_transfer || 0).toFixed(3) + ' (transfer)</div>' +
+                        (s.usd_swap ? '<div class="gas-usd">🔄 $' + s.usd_swap.toFixed(3) + ' (swap)</div>' : '') + '</div>';
                 });
-                html += '</div>';
-                container.innerHTML = html;
-            } catch (error) { container.innerHTML = '<div class="error">❌ ' + error.message + '</div>'; }
+                h += '</div>';
+                c.innerHTML = h;
+            } catch (e) { c.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
         // ═══ CHART ═══
         var priceChart = null;
-        async function loadChart(cryptoId) {
-            if (!cryptoId) cryptoId = document.getElementById('chart-crypto').value;
+        async function loadChart(id) {
+            if (!id) id = document.getElementById('chart-crypto').value;
             var period = document.getElementById('chart-period').value;
-            var selector = document.getElementById('chart-crypto');
-            var selectedOption = selector.options[selector.selectedIndex];
-            var symbol = selectedOption.getAttribute('data-symbol') || 'BTC';
-            var name = selectedOption.textContent.split(' (')[0];
+            var s = document.getElementById('chart-crypto');
+            var opt = s.options[s.selectedIndex];
+            var symbol = opt.getAttribute('data-symbol') || 'BTC';
+            var name = opt.textContent.split(' (')[0];
             document.getElementById('chart-title').textContent = '📊 ' + name;
             try {
-                var response = await fetch('/api/history/' + cryptoId + '?days=' + period);
-                var data = await response.json();
-                if (data.error) { console.error('Chart error:', data.error); return; }
+                var r = await fetch('/api/history/' + id + '?days=' + period);
+                var d = await r.json();
+                if (d.error) return;
                 var ctx = document.getElementById('price-chart').getContext('2d');
                 if (priceChart) priceChart.destroy();
-                var labels = data.timestamps.map(function(ts) {
-                    var d = new Date(ts);
-                    if (period === '1') return d.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
-                    return d.toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit'});
+                var labels = d.timestamps.map(function(ts) {
+                    var dt = new Date(ts);
+                    if (period === '1') return dt.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'});
+                    return dt.toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit'});
                 });
                 priceChart = new Chart(ctx, {
                     type: 'line',
-                    data: { labels: labels, datasets: [{ label: symbol + ' (USD)', data: data.prices, borderColor: '#89b4fa', backgroundColor: 'rgba(137, 180, 250, 0.1)', borderWidth: 2, fill: true, tension: 0.3, pointRadius: 0 }] },
+                    data: { labels: labels, datasets: [{ label: symbol + ' (USD)', data: d.prices, borderColor: '#89b4fa', backgroundColor: 'rgba(137, 180, 250, 0.1)', borderWidth: 2, fill: true, tension: 0.3, pointRadius: 0 }] },
                     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
                 });
-            } catch (error) { console.error('Chart error:', error); }
+            } catch (e) { console.error(e); }
         }
 
         // ═══ TOP MOVERS ═══
         async function loadTopMovers() {
-            var g = document.getElementById('gainers-list');
-            var l = document.getElementById('losers-list');
+            var g = document.getElementById('gainers-list'), l = document.getElementById('losers-list');
             if (!g || !l) return;
             try {
                 var r = await fetch('/api/top_movers');
@@ -430,68 +442,60 @@
             } catch (e) { g.innerHTML = '<div class="error">❌</div>'; l.innerHTML = '<div class="error">❌</div>'; }
         }
         function renderMovers(container, coins) {
-            if (!coins || coins.length === 0) { container.innerHTML = '<div class="error">Aucune donnée</div>'; return; }
+            if (!coins || coins.length === 0) { container.innerHTML = '<div class="error">N/A</div>'; return; }
             container.innerHTML = '';
-            coins.forEach(function(coin, index) {
-                var change = coin.price_change_percentage_24h || 0;
-                var cc = change >= 0 ? 'positive' : 'negative';
-                var arrow = change >= 0 ? '▲' : '▼';
+            coins.forEach(function(coin, i) {
+                var ch = coin.price_change_percentage_24h || 0;
+                var cc = ch >= 0 ? 'positive' : 'negative';
                 var item = document.createElement('div');
                 item.className = 'mover-item';
                 item.style.cursor = 'pointer';
                 item.onclick = function() { showCryptoDetails(coin.id); };
-                item.innerHTML = '<div class="mover-rank">' + (index + 1) + '</div>' +
+                item.innerHTML = '<div class="mover-rank">' + (i + 1) + '</div>' +
                     '<div class="mover-info"><div class="mover-symbol">' + coin.symbol + '</div><div class="mover-name">' + coin.name + '</div></div>' +
                     '<div class="mover-price"><div class="mover-current">$' + coin.current_price.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</div>' +
-                    '<div class="mover-change ' + cc + '">' + arrow + ' ' + change.toFixed(2) + '%</div></div>';
+                    '<div class="mover-change ' + cc + '">' + (ch >= 0 ? '▲' : '▼') + ' ' + ch.toFixed(2) + '%</div></div>';
                 container.appendChild(item);
             });
         }
 
-        // ═══ CRYPTO MODAL ═══
+        // ═══ CRYPTO DETAILS ═══
         function closeCryptoModal() { document.getElementById('crypto-modal').style.display = 'none'; }
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeCryptoModal();
-                document.getElementById('contract-modal').style.display = 'none';
-                document.getElementById('alert-modal').style.display = 'none';
-                document.getElementById('dca-modal').style.display = 'none';
-                document.getElementById('signals-modal').style.display = 'none';
+                ['contract-modal','alert-modal','dca-modal','signals-modal','exchanges-modal'].forEach(function(id) {
+                    var el = document.getElementById(id); if (el) el.style.display = 'none';
+                });
             }
         });
-        async function showCryptoDetails(cryptoId) {
-            var modal = document.getElementById('crypto-modal');
-            var body = document.getElementById('crypto-modal-body');
+        async function showCryptoDetails(id) {
+            var modal = document.getElementById('crypto-modal'), body = document.getElementById('crypto-modal-body');
             body.innerHTML = '<div class="loading">⏳ ...</div>';
             modal.style.display = 'flex';
             try {
-                var response = await fetch('/api/crypto/' + cryptoId);
-                var data = await response.json();
-                if (data.error) { body.innerHTML = '<div class="error">❌ ' + data.error + '</div>'; return; }
-                var chg = data.market_data.price_change_24h || 0;
-                var cls = chg >= 0 ? 'positive' : 'negative';
-                var ar = chg >= 0 ? '▲' : '▼';
-                var price = data.market_data.current_price || 0;
-                var html = '<div class="crypto-detail-header">';
-                html += '<img src="' + data.image + '" class="crypto-detail-image">';
-                html += '<div><h2>' + data.name + ' <span class="crypto-detail-symbol">' + data.symbol + '</span></h2>';
-                html += '<div class="crypto-detail-price">$' + price.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 8}) + '</div>';
-                html += '<div class="' + cls + '" style="font-weight:bold;">' + ar + ' ' + chg.toFixed(2) + '%</div></div></div>';
-                if (data.description) { html += '<div class="crypto-detail-section"><h3>📝 Description</h3><p>' + data.description + '</p></div>'; }
-                html += '<div class="crypto-detail-section"><h3>📊 Données</h3><div class="crypto-detail-grid">';
-                html += '<div><span>Market Cap</span>$' + (data.market_data.market_cap || 0).toLocaleString('fr-FR') + '</div>';
-                html += '<div><span>Volume 24h</span>$' + (data.market_data.total_volume || 0).toLocaleString('fr-FR') + '</div>';
-                html += '<div><span>ATH</span>$' + (data.market_data.ath || 0).toLocaleString('fr-FR') + '</div>';
-                html += '</div></div>';
-                if (data.exchanges && data.exchanges.length > 0) {
-                    html += '<div class="crypto-detail-section"><h3>🛒 Où acheter</h3><div class="exchanges-list">';
-                    data.exchanges.forEach(function(ex) {
-                        html += '<a href="' + ex.url + '" target="_blank" class="exchange-item"><div><div class="exchange-name">' + ex.name + '</div><div class="exchange-pair">' + ex.pair + '</div></div><span>→</span></a>';
+                var r = await fetch('/api/crypto/' + id);
+                var d = await r.json();
+                if (d.error) { body.innerHTML = '<div class="error">❌ ' + d.error + '</div>'; return; }
+                var chg = d.market_data.price_change_24h || 0, cls = chg >= 0 ? 'positive' : 'negative';
+                var h = '<div class="crypto-detail-header"><img src="' + d.image + '" class="crypto-detail-image"><div>';
+                h += '<h2>' + d.name + ' <span class="crypto-detail-symbol">' + d.symbol + '</span></h2>';
+                h += '<div class="crypto-detail-price">$' + (d.market_data.current_price || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 8}) + '</div>';
+                h += '<div class="' + cls + '" style="font-weight:bold;">' + (chg >= 0 ? '▲' : '▼') + ' ' + chg.toFixed(2) + '%</div></div></div>';
+                if (d.description) h += '<div class="crypto-detail-section"><h3>📝 Description</h3><p>' + d.description + '</p></div>';
+                h += '<div class="crypto-detail-section"><h3>📊 Données</h3><div class="crypto-detail-grid">';
+                h += '<div><span>Market Cap</span>$' + (d.market_data.market_cap || 0).toLocaleString('fr-FR') + '</div>';
+                h += '<div><span>Volume 24h</span>$' + (d.market_data.total_volume || 0).toLocaleString('fr-FR') + '</div>';
+                h += '<div><span>ATH</span>$' + (d.market_data.ath || 0).toLocaleString('fr-FR') + '</div></div></div>';
+                if (d.exchanges && d.exchanges.length > 0) {
+                    h += '<div class="crypto-detail-section"><h3>🛒 Où acheter</h3><div class="exchanges-list">';
+                    d.exchanges.forEach(function(ex) {
+                        h += '<a href="' + ex.url + '" target="_blank" class="exchange-item"><div><div class="exchange-name">' + ex.name + '</div><div class="exchange-pair">' + ex.pair + '</div></div><span>→</span></a>';
                     });
-                    html += '</div></div>';
+                    h += '</div></div>';
                 }
-                body.innerHTML = html;
-            } catch (error) { body.innerHTML = '<div class="error">❌ ' + error.message + '</div>'; }
+                body.innerHTML = h;
+            } catch (e) { body.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
         // ═══ CHAT ═══
@@ -501,29 +505,22 @@
             var d = document.createElement('div');
             d.className = 'chat-message ' + (isUser ? 'user' : 'ai');
             d.innerHTML = text.replace(/\n/g, '<br>');
-            m.appendChild(d);
-            m.scrollTop = m.scrollHeight;
+            m.appendChild(d); m.scrollTop = m.scrollHeight;
         }
         async function sendMessage() {
-            var input = document.getElementById('chat-input');
-            var msg = input.value.trim();
+            var input = document.getElementById('chat-input'), msg = input.value.trim();
             if (!msg) return;
             addChatMessage(msg, true);
             input.value = '';
             var l = document.createElement('div');
-            l.id = 'chat-loading';
-            l.className = 'chat-message ai';
-            l.textContent = '⏳ ...';
+            l.id = 'chat-loading'; l.className = 'chat-message ai'; l.textContent = '⏳ ...';
             document.getElementById('chat-messages').appendChild(l);
             try {
                 var r = await fetch('/api/chat', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({message: msg})});
                 var d = await r.json();
                 document.getElementById('chat-loading').remove();
                 addChatMessage(d.response || 'Erreur', false);
-            } catch (e) {
-                document.getElementById('chat-loading').remove();
-                addChatMessage('❌ ' + e.message, false);
-            }
+            } catch (e) { document.getElementById('chat-loading').remove(); addChatMessage('❌ ' + e.message, false); }
         }
 
         // ═══ ALERT ═══
@@ -532,7 +529,6 @@
             e.preventDefault();
             var status = document.getElementById('alert-status');
             status.textContent = '⏳ ...';
-            status.style.color = 'var(--accent-yellow)';
             try {
                 var r = await fetch('/api/alerts/test', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -567,17 +563,14 @@
             data.forEach(function(coin, i) {
                 var ch = coin.price_change_percentage_24h || 0;
                 var cc = ch >= 0 ? 'positive' : 'negative';
-                var ar = ch >= 0 ? '▲' : '▼';
                 var sym = currency === 'USD' ? '$' : '€';
-                var rc = '#a6e3a1';
-                if (coin.risk_color === 'DANGER') rc = '#f38ba8';
-                else if (coin.risk_color === 'WARN') rc = '#f9e2af';
+                var rc = coin.risk_color === 'DANGER' ? '#f38ba8' : (coin.risk_color === 'WARN' ? '#f9e2af' : '#a6e3a1');
                 var r = '<tr onclick="showCryptoDetails(\'' + coin.id + '\')" style="cursor:pointer;">';
                 r += '<td>' + (i + 1) + '</td>';
                 r += '<td><strong>' + coin.symbol.toUpperCase() + '</strong></td>';
                 r += '<td>' + coin.name + '</td>';
                 r += '<td>' + sym + coin.current_price.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</td>';
-                r += '<td class="' + cc + '">' + ar + ' ' + ch.toFixed(2) + '%</td>';
+                r += '<td class="' + cc + '">' + (ch >= 0 ? '▲' : '▼') + ' ' + ch.toFixed(2) + '%</td>';
                 r += '<td>' + sym + coin.market_cap.toLocaleString('fr-FR') + '</td>';
                 r += '<td style="color:' + rc + '; font-weight:bold;">' + (coin.risk_score || 0) + '/100</td>';
                 r += '<td><button onclick="event.stopPropagation(); addToWatchlist(\'' + coin.id + '\', \'' + coin.symbol + '\')" class="star-btn">⭐</button></td>';
@@ -617,9 +610,7 @@
 
         // ═══ EXPORT CSV ═══
         function exportCSV() {
-            var limit = document.getElementById('limit').value;
-            var currency = document.getElementById('currency').value;
-            window.location.href = '/api/export/csv?limit=' + limit + '&currency=' + currency;
+            window.location.href = '/api/export/csv?limit=' + document.getElementById('limit').value + '&currency=' + document.getElementById('currency').value;
         }
 
         // ═══ CONTRACT ANALYZER ═══
@@ -642,20 +633,17 @@
         async function analyzeContract() {
             var file = document.getElementById('contract-image-input').files[0];
             if (!file) return;
-            var resultDiv = document.getElementById('contract-result');
-            resultDiv.style.display = 'block';
-            resultDiv.innerHTML = '<div class="loading">⏳ Analyse...</div>';
-            var formData = new FormData();
-            formData.append('image', file);
+            var rd = document.getElementById('contract-result');
+            rd.style.display = 'block';
+            rd.innerHTML = '<div class="loading">⏳ Analyse...</div>';
+            var fd = new FormData();
+            fd.append('image', file);
             try {
-                var response = await fetch('/api/analyze-contract', { method: 'POST', body: formData });
-                var data = await response.json();
-                if (data.success) {
-                    resultDiv.innerHTML = '<div class="contract-analysis">' + data.analysis.replace(/\n/g, '<br>') + '</div>';
-                } else {
-                    resultDiv.innerHTML = '<div class="error">❌ ' + (data.error || 'Erreur') + '</div>';
-                }
-            } catch (error) { resultDiv.innerHTML = '<div class="error">❌ ' + error.message + '</div>'; }
+                var r = await fetch('/api/analyze-contract', { method: 'POST', body: fd });
+                var d = await r.json();
+                if (d.success) rd.innerHTML = '<div class="contract-analysis">' + d.analysis.replace(/\n/g, '<br>') + '</div>';
+                else rd.innerHTML = '<div class="error">❌ ' + (d.error || 'Erreur') + '</div>';
+            } catch (e) { rd.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
         // ═══ DCA ═══
@@ -665,33 +653,28 @@
             document.getElementById('dca-result').innerHTML = '';
         }
         async function calculateDCA() {
-            var cryptoId = document.getElementById('dca-crypto').value;
+            var id = document.getElementById('dca-crypto').value;
             var amount = parseFloat(document.getElementById('dca-amount').value);
             var months = parseInt(document.getElementById('dca-months').value);
-            var resultDiv = document.getElementById('dca-result');
-            resultDiv.innerHTML = '<div class="loading">⏳ Calcul...</div>';
+            var rd = document.getElementById('dca-result');
+            rd.innerHTML = '<div class="loading">⏳ ...</div>';
             try {
-                var response = await fetch('/api/dca', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({crypto_id: cryptoId, monthly_amount: amount, months: months})
+                var r = await fetch('/api/dca', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({crypto_id: id, monthly_amount: amount, months: months})
                 });
-                var data = await response.json();
-                if (data.error) { resultDiv.innerHTML = '<div class="error">❌ ' + data.error + '</div>'; return; }
-                var profitColor = data.profit >= 0 ? '#a6e3a1' : '#f38ba8';
-                var html = '<div class="dca-stats">';
-                html += '<div class="dca-stat"><div class="dca-label">Investi</div><div class="dca-value">$' + data.total_invested.toLocaleString('fr-FR') + '</div></div>';
-                html += '<div class="dca-stat"><div class="dca-label">Valeur</div><div class="dca-value" style="color:#89b4fa;">$' + data.current_value.toLocaleString('fr-FR') + '</div></div>';
-                html += '<div class="dca-stat"><div class="dca-label">Profit</div><div class="dca-value" style="color:' + profitColor + ';">' + (data.profit >= 0 ? '+' : '') + '$' + data.profit.toLocaleString('fr-FR') + '</div></div>';
-                html += '</div>';
-                html += '<div class="dca-details">';
-                html += '<div>🪙 Total: <strong>' + data.total_coins.toFixed(6) + '</strong></div>';
-                html += '<div>💵 Prix moyen: <strong>$' + data.avg_buy_price.toLocaleString('fr-FR') + '</strong></div>';
-                html += '<div>📈 Prix actuel: <strong>$' + data.current_price.toLocaleString('fr-FR') + '</strong></div>';
-                html += '<div>📊 ROI: <strong style="color:' + profitColor + ';">' + (data.roi >= 0 ? '+' : '') + data.roi + '%</strong></div>';
-                html += '</div>';
-                resultDiv.innerHTML = html;
-            } catch (error) { resultDiv.innerHTML = '<div class="error">❌ ' + error.message + '</div>'; }
+                var d = await r.json();
+                if (d.error) { rd.innerHTML = '<div class="error">❌ ' + d.error + '</div>'; return; }
+                var pc = d.profit >= 0 ? '#a6e3a1' : '#f38ba8';
+                rd.innerHTML = '<div class="dca-stats">' +
+                    '<div class="dca-stat"><div class="dca-label">Investi</div><div class="dca-value">$' + d.total_invested.toLocaleString('fr-FR') + '</div></div>' +
+                    '<div class="dca-stat"><div class="dca-label">Valeur</div><div class="dca-value" style="color:#89b4fa;">$' + d.current_value.toLocaleString('fr-FR') + '</div></div>' +
+                    '<div class="dca-stat"><div class="dca-label">Profit</div><div class="dca-value" style="color:' + pc + ';">' + (d.profit >= 0 ? '+' : '') + '$' + d.profit.toLocaleString('fr-FR') + '</div></div></div>' +
+                    '<div class="dca-details"><div>🪙 ' + d.total_coins.toFixed(6) + '</div>' +
+                    '<div>💵 Prix moyen: $' + d.avg_buy_price.toLocaleString('fr-FR') + '</div>' +
+                    '<div>📈 Prix actuel: $' + d.current_price.toLocaleString('fr-FR') + '</div>' +
+                    '<div>📊 ROI: <strong style="color:' + pc + ';">' + (d.roi >= 0 ? '+' : '') + d.roi + '%</strong></div></div>';
+            } catch (e) { rd.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
         // ═══ AI SIGNALS ═══
@@ -701,106 +684,94 @@
             document.getElementById('signals-result').innerHTML = '';
         }
         async function loadSignals() {
-            var cryptoId = document.getElementById('signals-crypto').value;
-            var resultDiv = document.getElementById('signals-result');
-            resultDiv.innerHTML = '<div class="loading">⏳ Analyse AI...</div>';
+            var id = document.getElementById('signals-crypto').value;
+            var rd = document.getElementById('signals-result');
+            rd.innerHTML = '<div class="loading">⏳ Analyse AI...</div>';
             try {
-                var response = await fetch('/api/signals/' + cryptoId);
-                var data = await response.json();
-                if (data.error) { resultDiv.innerHTML = '<div class="error">❌ ' + data.error + '</div>'; return; }
-                var signalColors = {'BUY': '#a6e3a1', 'SELL': '#f38ba8', 'HOLD': '#f9e2af'};
-                var signalIcons = {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '🟡'};
-                var riskColors = {'LOW': '#a6e3a1', 'MEDIUM': '#f9e2af', 'HIGH': '#f38ba8'};
-                var sig = (data.signal || 'HOLD').toUpperCase();
-                var sigColor = signalColors[sig] || '#f9e2af';
-                var sigIcon = signalIcons[sig] || '🟡';
-                var conf = data.confidence || 0;
-                var risk = (data.risk_level || 'MEDIUM').toUpperCase();
-                var riskColor = riskColors[risk] || '#f9e2af';
-                var html = '<div class="signal-box" style="border-color:' + sigColor + ';">';
-                html += '<div style="font-size:3em; text-align:center;">' + sigIcon + '</div>';
-                html += '<div class="signal-text" style="color:' + sigColor + ';">' + sig + '</div>';
-                html += '<div style="text-align:center; color:var(--text-muted);">Confidence: <strong style="color:' + sigColor + ';">' + conf + '%</strong></div>';
-                html += '</div>';
-                html += '<div class="signal-info"><div>⏰ ' + (data.timeframe || 'medium').toUpperCase() + '</div>';
-                html += '<div>⚠️ Risk: <strong style="color:' + riskColor + ';">' + risk + '</strong></div></div>';
-                if (data.reasoning) {
-                    html += '<div class="signal-reasoning"><h4 style="color:var(--accent-blue); margin-bottom:10px;">💡 Raisonnement</h4>';
-                    html += '<p style="line-height:1.6; color:var(--text-secondary);">' + data.reasoning + '</p></div>';
+                var r = await fetch('/api/signals/' + id);
+                var d = await r.json();
+                if (d.error) { rd.innerHTML = '<div class="error">❌ ' + d.error + '</div>'; return; }
+                var sc = {'BUY': '#a6e3a1', 'SELL': '#f38ba8', 'HOLD': '#f9e2af'};
+                var si = {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '🟡'};
+                var rc = {'LOW': '#a6e3a1', 'MEDIUM': '#f9e2af', 'HIGH': '#f38ba8'};
+                var sig = (d.signal || 'HOLD').toUpperCase();
+                var col = sc[sig] || '#f9e2af';
+                var icon = si[sig] || '🟡';
+                var risk = (d.risk_level || 'MEDIUM').toUpperCase();
+                var h = '<div class="signal-box" style="border-color:' + col + ';">';
+                h += '<div style="font-size:3em; text-align:center;">' + icon + '</div>';
+                h += '<div class="signal-text" style="color:' + col + ';">' + sig + '</div>';
+                h += '<div style="text-align:center; color:var(--text-muted);">Confidence: <strong style="color:' + col + ';">' + (d.confidence || 0) + '%</strong></div></div>';
+                h += '<div class="signal-info"><div>⏰ ' + (d.timeframe || 'medium').toUpperCase() + '</div>';
+                h += '<div>⚠️ Risk: <strong style="color:' + (rc[risk] || '#f9e2af') + ';">' + risk + '</strong></div></div>';
+                if (d.reasoning) h += '<div class="signal-reasoning"><h4 style="color:var(--accent-blue); margin-bottom:10px;">💡 Raisonnement</h4><p style="line-height:1.6; color:var(--text-secondary);">' + d.reasoning + '</p></div>';
+                if (d.key_points) { h += '<div class="signal-points"><h4 style="color:var(--accent-blue); margin-bottom:10px;">📌 Points</h4>'; d.key_points.forEach(function(p) { h += '<div class="signal-point">• ' + p + '</div>'; }); h += '</div>'; }
+                h += '<div style="margin-top:15px; padding:10px; background:rgba(243,139,168,0.1); border-radius:8px; color:var(--accent-red); font-size:0.85em; text-align:center;">⚠️ Pas un conseil financier</div>';
+                rd.innerHTML = h;
+            } catch (e) { rd.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
+        }
+
+        // ═══ EXCHANGES ═══
+        function toggleExchanges() {
+            var m = document.getElementById('exchanges-modal');
+            m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+            document.getElementById('exchanges-result').innerHTML = '';
+        }
+        async function loadExchanges() {
+            var id = document.getElementById('exchanges-crypto').value;
+            var rd = document.getElementById('exchanges-result');
+            rd.innerHTML = '<div class="loading">⏳ ...</div>';
+            try {
+                var r = await fetch('/api/exchanges/' + id);
+                var d = await r.json();
+                if (d.error) { rd.innerHTML = '<div class="error">❌ ' + d.error + '</div>'; return; }
+                var h = '';
+                if (d.spread > 0.5) {
+                    h += '<div class="exchange-spread"><div style="text-align:center;">';
+                    h += '<div style="font-size:1.5em; font-weight:bold; color:#a6e3a1;">💡 Arbitrage!</div>';
+                    h += '<div style="color:var(--text-secondary); margin-top:5px;">Spread: <strong style="color:#a6e3a1;">' + d.spread + '%</strong></div>';
+                    h += '<div style="color:var(--text-secondary); font-size:0.85em; margin-top:5px;">Acheter sur <strong>' + d.cheapest + '</strong> → Vendre sur <strong>' + d.expensive + '</strong></div>';
+                    h += '</div></div>';
                 }
-                if (data.key_points && data.key_points.length > 0) {
-                    html += '<div class="signal-points"><h4 style="color:var(--accent-blue); margin-bottom:10px;">📌 Points clés</h4>';
-                    data.key_points.forEach(function(point) { html += '<div class="signal-point">• ' + point + '</div>'; });
-                    html += '</div>';
-                }
-                html += '<div style="margin-top:15px; padding:10px; background:rgba(243,139,168,0.1); border-radius:8px; color:var(--accent-red); font-size:0.85em; text-align:center;">⚠️ Pas un conseil financier</div>';
-                resultDiv.innerHTML = html;
-            } catch (error) { resultDiv.innerHTML = '<div class="error">❌ ' + error.message + '</div>'; }
-        }
-// ═══ MULTI-EXCHANGE ═══
-function toggleExchanges() {
-    var m = document.getElementById('exchanges-modal');
-    m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
-    document.getElementById('exchanges-result').innerHTML = '';
-}
-
-async function loadExchanges() {
-    var cryptoId = document.getElementById('exchanges-crypto').value;
-    var resultDiv = document.getElementById('exchanges-result');
-    resultDiv.innerHTML = '<div class="loading">⏳ Comparaison...</div>';
-
-    try {
-        var response = await fetch('/api/exchanges/' + cryptoId);
-        var data = await response.json();
-
-        if (data.error) {
-            resultDiv.innerHTML = '<div class="error">❌ ' + data.error + '</div>';
-            return;
+                h += '<div class="exchanges-table">';
+                d.exchanges.forEach(function(ex) {
+                    var isCh = ex.name === d.cheapest, isEx = ex.name === d.expensive;
+                    var bc = isCh ? '#a6e3a1' : (isEx ? '#f38ba8' : 'transparent');
+                    var bd = isCh ? '<span class="exchange-badge" style="background:#a6e3a1; color:#1e1e2e;">💚 Meilleur prix</span>' : (isEx ? '<span class="exchange-badge" style="background:#f38ba8; color:#1e1e2e;">🔴 Plus cher</span>' : '');
+                    h += '<div class="exchange-row" style="border-left:3px solid ' + bc + ';">';
+                    h += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><strong style="font-size:1.1em;">' + ex.name + '</strong>' + bd + '</div>';
+                    h += '<div style="font-size:1.5em; font-weight:bold; color:var(--accent-blue);">$' + ex.price.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</div>';
+                    var chC = ex.change_24h >= 0 ? '#a6e3a1' : '#f38ba8';
+                    h += '<div style="font-size:0.85em; color:var(--text-muted); margin-top:5px;">24h: <strong style="color:' + chC + ';">' + (ex.change_24h >= 0 ? '+' : '') + ex.change_24h.toFixed(2) + '%</strong> • Vol: $' + (ex.volume_24h / 1e6).toFixed(1) + 'M</div>';
+                    h += '<a href="' + ex.url + '" target="_blank" style="display:inline-block; margin-top:10px; color:var(--accent-blue); text-decoration:none; font-size:0.9em;">Trader →</a>';
+                    h += '</div>';
+                });
+                h += '</div>';
+                rd.innerHTML = h;
+            } catch (e) { rd.innerHTML = '<div class="error">❌ ' + e.message + '</div>'; }
         }
 
-        var html = '';
-
-        // Summary: Spread
-        if (data.spread > 0.5) {
-            html += '<div class="exchange-spread">';
-            html += '<div style="text-align:center;">';
-            html += '<div style="font-size:1.5em; font-weight:bold; color:#a6e3a1;">💡 Arbitrage!</div>';
-            html += '<div style="color:var(--text-secondary); font-size:0.9em; margin-top:5px;">Spread: <strong style="color:#a6e3a1;">' + data.spread + '%</strong></div>';
-            html += '<div style="color:var(--text-secondary); font-size:0.85em; margin-top:5px;">Acheter sur <strong>' + data.cheapest + '</strong> → Vendre sur <strong>' + data.expensive + '</strong></div>';
-            html += '</div></div>';
+        // ═══ PRICE WATCHER ═══
+        async function checkPriceAlerts() {
+            if (Notification.permission !== 'granted') return;
+            try {
+                var r = await fetch('/api/prices?limit=20&currency=usd');
+                var d = await r.json();
+                if (!d.data) return;
+                var last = JSON.parse(localStorage.getItem('last-prices') || '{}');
+                d.data.forEach(function(coin) {
+                    var sym = coin.symbol.toUpperCase();
+                    var ch = coin.price_change_percentage_24h || 0;
+                    if (last[sym] && Math.abs(ch) >= 8) {
+                        showNotif((ch > 0 ? '🚀 ' : '📉 ') + sym + ' ' + (ch > 0 ? '+' : '') + ch.toFixed(2) + '%', '$' + coin.current_price.toLocaleString());
+                    }
+                    last[sym] = coin.current_price;
+                });
+                localStorage.setItem('last-prices', JSON.stringify(last));
+            } catch (e) { console.error(e); }
         }
+        setInterval(checkPriceAlerts, 300000);
 
-        // Table des exchanges
-        html += '<div class="exchanges-table">';
-        data.exchanges.forEach(function(ex, i) {
-            var isCheapest = ex.name === data.cheapest;
-            var isExpensive = ex.name === data.expensive;
-            var borderColor = isCheapest ? '#a6e3a1' : (isExpensive ? '#f38ba8' : 'transparent');
-            var badge = '';
-            if (isCheapest) badge = '<span class="exchange-badge" style="background:#a6e3a1; color:#1e1e2e;">💚 Meilleur prix</span>';
-            if (isExpensive) badge = '<span class="exchange-badge" style="background:#f38ba8; color:#1e1e2e;">🔴 Plus cher</span>';
-
-            html += '<div class="exchange-row" style="border-left:3px solid ' + borderColor + ';">';
-            html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">';
-            html += '<strong style="font-size:1.1em;">' + ex.name + '</strong>';
-            html += badge;
-            html += '</div>';
-            html += '<div style="font-size:1.5em; font-weight:bold; color:var(--accent-blue);">$' + ex.price.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '</div>';
-            html += '<div style="font-size:0.85em; color:var(--text-muted); margin-top:5px;">';
-            var chgColor = ex.change_24h >= 0 ? '#a6e3a1' : '#f38ba8';
-            html += '24h: <strong style="color:' + chgColor + ';">' + (ex.change_24h >= 0 ? '+' : '') + ex.change_24h.toFixed(2) + '%</strong>';
-            html += ' • Vol: $' + (ex.volume_24h / 1e6).toFixed(1) + 'M';
-            html += '</div>';
-            html += '<a href="' + ex.url + '" target="_blank" style="display:inline-block; margin-top:10px; color:var(--accent-blue); text-decoration:none; font-size:0.9em;">Trader →</a>';
-            html += '</div>';
-        });
-        html += '</div>';
-
-        resultDiv.innerHTML = html;
-    } catch (error) {
-        resultDiv.innerHTML = '<div class="error">❌ ' + error.message + '</div>';
-    }
-}
         // ═══ INIT ═══
         document.getElementById('refresh').addEventListener('click', loadPrices);
         document.getElementById('limit').addEventListener('change', loadPrices);
