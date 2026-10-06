@@ -52,7 +52,14 @@
             {% endif %}
         </div>
     </div>
-
+<!-- ═══ PORTFOLIO CHART ═══ -->
+<div class="portfolio-chart-section">
+    <h2 style="color:var(--accent-blue); margin-bottom:15px;">📈 Portfolio Performance (30 jours)</h2>
+    <div id="chart-error" class="error" style="display:none;"></div>
+    <div style="height:350px;">
+        <canvas id="portfolio-chart"></canvas>
+    </div>
+</div>
     <!-- ═══ ADD BUTTON ═══ -->
     <div style="max-width:900px; margin:0 auto 20px; text-align:right;">
         <button onclick="toggleAddForm()" class="btn-primary" style="padding:12px 25px; cursor:pointer; border:none; font-size:1em;">
@@ -209,5 +216,81 @@
             }
         }
     </script>
+    <!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    async function loadPortfolioChart() {
+        var canvas = document.getElementById('portfolio-chart');
+        if (!canvas) return;
+
+        try {
+            var response = await fetch('/api/portfolio/history');
+            var data = await response.json();
+
+            if (data.error) {
+                document.getElementById('chart-error').textContent = '❌ ' + data.error;
+                document.getElementById('chart-error').style.display = 'block';
+                return;
+            }
+
+            var labels = data.timestamps.map(function(ts) {
+                return new Date(ts).toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit'});
+            });
+
+            var ctx = canvas.getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Portfolio Value (USD)',
+                        data: data.timeline,
+                        borderColor: '#a6e3a1',
+                        backgroundColor: 'rgba(166, 227, 161, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        pointHoverRadius: 5
+                    }, {
+                        label: 'Total Cost',
+                        data: Array(labels.length).fill(data.total_cost),
+                        borderColor: '#f38ba8',
+                        borderWidth: 1,
+                        borderDash: [5, 5],
+                        fill: false,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true, labels: { color: '#cdd6f4' } }
+                    },
+                    scales: {
+                        y: {
+                            ticks: {
+                                color: '#cdd6f4',
+                                callback: function(v) { return '$' + v.toLocaleString('fr-FR'); }
+                            },
+                            grid: { color: '#45475a' }
+                        },
+                        x: {
+                            ticks: { color: '#cdd6f4' },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        } catch (e) {
+            document.getElementById('chart-error').textContent = '❌ ' + e.message;
+            document.getElementById('chart-error').style.display = 'block';
+        }
+    }
+
+    // تحميل تلقائي
+    document.addEventListener('DOMContentLoaded', loadPortfolioChart);
+</script>
 </body>
 </html>

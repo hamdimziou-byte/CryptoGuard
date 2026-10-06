@@ -427,7 +427,102 @@ def api_indicators(crypto_id):
         "indicators": indicators
     })
 
+@app.route("/api/portfolio/history")
+@login_required
+def api_portfolio_history():
+    """API: تاريخ المحفظة (30 يوم)"""
+    items = PortfolioItem.query.filter_by(user_id=current_user.id).all()
+    if not items:
+        return jsonify({"error": "Portfolio vide"}), 400
 
+    crypto_ids = list(set([item.crypto_id for item in items]))
+    days = 30
+
+    # جلب التاريخ لكل عملة
+    cache_file = "cache_history.json"
+    crypto_history = {}
+
+    for cid in crypto_ids:
+        cache_key = f"{cid}_{days}"
+
+        # جرب Cache
+        if os.path.exists(cache_file):
+            try:
+                with open(cache_file, "r", encoding="utf-8") as f:
+                    cache = json.load(f)
+                entry = cache.get(cache_key)
+                if entry and entry.get("prices"):
+                    crypto_history[cid] = {
+                        "prices": entry["prices"],
+                        "timestamps": entry.get("timestamps", [])
+                    }
+                    continue
+            except (json.JSONDecodeError, IOError):
+                pass
+
+        # Fetch من CoinGecko
+        try:
+            url = f"https://api.coingecko.com/api/v3/coins/{cid}/market_chart"
+            params = {"vs_currency": "usd", "days": days}
+            response = requests.get(url, params=params, timeout=10)
+            if response.ok:
+                data = response.json()
+                prices = [p[1] for p in data.get("prices", [])]
+                timestamps = [p[0] for p in data.get("prices", [])]
+                crypto_history[cid] = {"prices": prices, "timestamps": timestamps}
+
+                # Save Cache
+                cache = {}
+                if os.path.exists(cache_file):
+                    try:
+                        with open(cache_file, "r", encoding="utf-8") as f:
+                            cache = json.load(f)
+                    except (json.JSONDecodeError, IOError):
+                        cache = {}
+                cache[cache_key] = {
+                    "timestamp": time.time(),
+                    "prices": prices,
+                    "timestamps": timestamps
+                }
+                try:
+                    with open(cache_file, "w", encoding="utf-8") as f:
+                        json.dump(cache, f)
+                except IOError:
+                    pass
+        except requests.RequestException:
+            continue
+
+    if not crypto_history:
+        return jsonify({"error": "Impossible de récupérer l'historique"}), 500
+
+    # نحسبو القيمة الإجمالية يوم بيوم
+    # ناخدو أقصر سلسلة باش نضمنو التناسق
+    min_len = min(len(h["prices"]) for h in crypto_history.values())
+
+    timeline = []
+    timestamps_ref = None
+
+    for cid, h in crypto_history.items():
+        if len(h["timestamps"]) >= min_len and not timestamps_ref:
+            timestamps_ref = h["timestamps"][-min_len:]
+
+    for i in range(min_len):
+        total = 0
+        for item in items:
+            h = crypto_history.get(item.crypto_id)
+            if h and len(h["prices"]) > i:
+                total += h["prices"][-(min_len - i)] * item.amount
+        timeline.append(round(total, 2))
+
+    # حساب الـcost الأساسي
+    total_cost = sum(item.buy_price * item.amount for item in items)
+
+    return jsonify({
+        "timeline": timeline,
+        "timestamps": timestamps_ref or [],
+        "total_cost": round(total_cost, 2),
+        "crypto_count": len(crypto_ids)
+    })
 # ═══════════════════════════════════════════════════════
 #  API: FEAR & GREED
 # ═══════════════════════════════════════════════════════
