@@ -56,6 +56,27 @@
         </div>
     </div>
 
+    <!-- ═══ TECHNICAL INDICATORS ═══ -->
+    <div class="indicators-section">
+        <div class="indicators-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+                <h3 style="color:var(--accent-blue); margin:0;">📊 Technical Indicators</h3>
+                <select id="indicators-crypto" class="chart-selector">
+                    <option value="bitcoin">Bitcoin (BTC)</option>
+                    <option value="ethereum">Ethereum (ETH)</option>
+                    <option value="binancecoin">BNB</option>
+                    <option value="solana">Solana (SOL)</option>
+                    <option value="ripple">XRP</option>
+                    <option value="cardano">Cardano (ADA)</option>
+                    <option value="dogecoin">Dogecoin (DOGE)</option>
+                </select>
+            </div>
+            <div id="indicators-content">
+                <div class="loading">⏳ ...</div>
+            </div>
+        </div>
+    </div>
+
     <!-- ═══ CHART ═══ -->
     <div class="chart-container">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
@@ -224,9 +245,7 @@
     </div>
 
     <script>
-        // ═══════════════════════════════════════════════════════
-        //  TRANSLATIONS (from server)
-        // ═══════════════════════════════════════════════════════
+        // ═══ TRANSLATIONS ═══
         var T = {
             description: "{{ t('description') }}",
             market_data: "{{ t('market_data') }}",
@@ -252,9 +271,7 @@
             thinking: "{{ t('thinking') }}"
         };
 
-        // ═══════════════════════════════════════════════════════
-        //  THEME TOGGLE
-        // ═══════════════════════════════════════════════════════
+        // ═══ THEME TOGGLE ═══
         function toggleTheme() {
             document.documentElement.classList.toggle('light-mode');
             const isLight = document.documentElement.classList.contains('light-mode');
@@ -269,9 +286,7 @@
             }
         })();
 
-        // ═══════════════════════════════════════════════════════
-        //  FEAR & GREED INDEX
-        // ═══════════════════════════════════════════════════════
+        // ═══ FEAR & GREED INDEX ═══
         async function loadFearGreed() {
             var container = document.getElementById('fear-greed-content');
             try {
@@ -281,7 +296,6 @@
                     container.innerHTML = '<div class="error">❌ ' + data.error + '</div>';
                     return;
                 }
-
                 var html = '';
                 html += '<div class="fg-gauge">';
                 html += '<div class="fg-value" style="color:' + data.color + ';">';
@@ -298,17 +312,76 @@
                 html += '<span>😐 50 (Neutral)</span>';
                 html += '<span>🤑 100 (Extreme Greed)</span>';
                 html += '</div>';
-                html += '</div>';
-                html += '</div>';
+                html += '</div></div>';
                 container.innerHTML = html;
             } catch (error) {
                 container.innerHTML = '<div class="error">❌ ' + error.message + '</div>';
             }
         }
 
-        // ═══════════════════════════════════════════════════════
-        //  CHART
-        // ═══════════════════════════════════════════════════════
+        // ═══ TECHNICAL INDICATORS ═══
+        async function loadIndicators(cryptoId) {
+            if (!cryptoId) cryptoId = document.getElementById('indicators-crypto').value;
+            var container = document.getElementById('indicators-content');
+            container.innerHTML = '<div class="loading">⏳ ...</div>';
+            
+            try {
+                var response = await fetch('/api/indicators/' + cryptoId + '?days=90');
+                var data = await response.json();
+                
+                if (data.error) {
+                    container.innerHTML = '<div class="error">❌ ' + data.error + '</div>';
+                    return;
+                }
+                
+                var ind = data.indicators;
+                var rsi = ind.current_rsi || 0;
+                var cross = ind.current_trend || 'none';
+                
+                var rsiColor = '#f9e2af';
+                var rsiLabel = 'Neutral';
+                if (rsi < 30) { rsiColor = '#a6e3a1'; rsiLabel = 'Oversold (Buy)'; }
+                else if (rsi > 70) { rsiColor = '#f38ba8'; rsiLabel = 'Overbought (Sell)'; }
+                
+                var crossInfo = {
+                    'golden_cross': { text: '🌟 Golden Cross', color: '#a6e3a1', desc: 'Bullish signal' },
+                    'death_cross': { text: '💀 Death Cross', color: '#f38ba8', desc: 'Bearish signal' },
+                    'bullish': { text: '📈 Bullish', color: '#a6e3a1', desc: 'Uptrend' },
+                    'bearish': { text: '📉 Bearish', color: '#f38ba8', desc: 'Downtrend' },
+                    'none': { text: '➖ Neutral', color: '#f9e2af', desc: 'No trend' }
+                };
+                var ci = crossInfo[cross] || crossInfo['none'];
+                
+                var html = '';
+                html += '<div class="indicator-item">';
+                html += '<div class="indicator-label">📈 RSI (14)</div>';
+                html += '<div class="indicator-value" style="color:' + rsiColor + ';">' + rsi.toFixed(2) + '</div>';
+                html += '<div class="indicator-desc" style="color:' + rsiColor + ';">' + rsiLabel + '</div>';
+                html += '<div class="rsi-bar"><div class="rsi-marker" style="left:' + Math.min(rsi, 100) + '%;"></div></div>';
+                html += '</div>';
+                
+                html += '<div class="indicator-item">';
+                html += '<div class="indicator-label">🎯 Trend (SMA 20/50)</div>';
+                html += '<div class="indicator-value" style="color:' + ci.color + ';">' + ci.text + '</div>';
+                html += '<div class="indicator-desc" style="color:' + ci.color + ';">' + ci.desc + '</div>';
+                html += '</div>';
+                
+                var macd = ind.macd.macd;
+                var macdLast = macd[macd.length - 1] || 0;
+                var macdColor = macdLast >= 0 ? '#a6e3a1' : '#f38ba8';
+                html += '<div class="indicator-item">';
+                html += '<div class="indicator-label">📊 MACD</div>';
+                html += '<div class="indicator-value" style="color:' + macdColor + ';">' + macdLast.toFixed(4) + '</div>';
+                html += '<div class="indicator-desc" style="color:' + macdColor + ';">' + (macdLast >= 0 ? 'Bullish' : 'Bearish') + '</div>';
+                html += '</div>';
+                
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = '<div class="error">❌ ' + error.message + '</div>';
+            }
+        }
+
+        // ═══ CHART ═══
         var priceChart = null;
         async function loadChart(cryptoId) {
             if (!cryptoId) cryptoId = document.getElementById('chart-crypto').value;
@@ -340,9 +413,7 @@
             } catch (error) { console.error('Chart error:', error); }
         }
 
-        // ═══════════════════════════════════════════════════════
-        //  TOP MOVERS
-        // ═══════════════════════════════════════════════════════
+        // ═══ TOP MOVERS ═══
         async function loadTopMovers() {
             var g = document.getElementById('gainers-list');
             var l = document.getElementById('losers-list');
@@ -374,9 +445,7 @@
             });
         }
 
-        // ═══════════════════════════════════════════════════════
-        //  CRYPTO DETAILS MODAL
-        // ═══════════════════════════════════════════════════════
+        // ═══ CRYPTO DETAILS MODAL ═══
         function closeCryptoModal() { document.getElementById('crypto-modal').style.display = 'none'; }
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
@@ -431,9 +500,7 @@
             } catch (error) { body.innerHTML = '<div class="error">❌ ' + error.message + '</div>'; }
         }
 
-        // ═══════════════════════════════════════════════════════
-        //  AI CHAT
-        // ═══════════════════════════════════════════════════════
+        // ═══ AI CHAT ═══
         function toggleChat() { var b = document.getElementById('chat-box'); b.style.display = b.style.display === 'flex' ? 'none' : 'flex'; }
         function addChatMessage(text, isUser) {
             const m = document.getElementById('chat-messages');
@@ -465,9 +532,7 @@
             }
         }
 
-        // ═══════════════════════════════════════════════════════
-        //  ALERT FORM
-        // ═══════════════════════════════════════════════════════
+        // ═══ ALERT FORM ═══
         function toggleAlertForm() { var m = document.getElementById('alert-modal'); m.style.display = m.style.display === 'flex' ? 'none' : 'flex'; }
         async function sendAlert(e) {
             e.preventDefault();
@@ -490,9 +555,7 @@
             } catch (err) { status.textContent = '❌ ' + err.message; status.style.color = 'var(--accent-red)'; }
         }
 
-        // ═══════════════════════════════════════════════════════
-        //  PRICES
-        // ═══════════════════════════════════════════════════════
+        // ═══ PRICES ═══
         async function loadPrices() {
             document.getElementById('loading').style.display = 'block';
             document.getElementById('error').style.display = 'none';
@@ -532,9 +595,7 @@
             });
         }
 
-        // ═══════════════════════════════════════════════════════
-        //  WATCHLIST
-        // ═══════════════════════════════════════════════════════
+        // ═══ WATCHLIST ═══
         async function addToWatchlist(id, sym) {
             try {
                 const r = await fetch('/watchlist/add/' + id, {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: 'symbol=' + sym});
@@ -543,9 +604,7 @@
             } catch (e) { alert('Erreur'); }
         }
 
-        // ═══════════════════════════════════════════════════════
-        //  NEWS
-        // ═══════════════════════════════════════════════════════
+        // ═══ NEWS ═══
         async function loadNews() {
             const c = document.getElementById('news-container');
             try {
@@ -566,18 +625,14 @@
             } catch (e) { c.innerHTML = '<div class="error">❌</div>'; }
         }
 
-        // ═══════════════════════════════════════════════════════
-        //  EXPORT CSV
-        // ═══════════════════════════════════════════════════════
+        // ═══ EXPORT CSV ═══
         function exportCSV() {
             var limit = document.getElementById('limit').value;
             var currency = document.getElementById('currency').value;
             window.location.href = '/api/export/csv?limit=' + limit + '&currency=' + currency;
         }
 
-        // ═══════════════════════════════════════════════════════
-        //  CONTRACT ANALYZER
-        // ═══════════════════════════════════════════════════════
+        // ═══ CONTRACT ANALYZER ═══
         function toggleContractAnalyzer() {
             var m = document.getElementById('contract-modal');
             m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
@@ -622,25 +677,26 @@
             }
         }
 
-        // ═══════════════════════════════════════════════════════
-        //  INIT
-        // ═══════════════════════════════════════════════════════
+        // ═══ INIT ═══
         document.getElementById('refresh').addEventListener('click', loadPrices);
         document.getElementById('limit').addEventListener('change', loadPrices);
         document.getElementById('currency').addEventListener('change', loadPrices);
         document.getElementById('export-csv').addEventListener('click', exportCSV);
         document.getElementById('chart-crypto').addEventListener('change', function() { loadChart(this.value); });
         document.getElementById('chart-period').addEventListener('change', function() { loadChart(); });
+        document.getElementById('indicators-crypto').addEventListener('change', function() { loadIndicators(this.value); });
 
         loadPrices();
         loadChart('bitcoin');
         loadNews();
         loadTopMovers();
         loadFearGreed();
+        loadIndicators('bitcoin');
         setInterval(loadPrices, 60000);
         setInterval(loadNews, 300000);
         setInterval(loadTopMovers, 120000);
         setInterval(loadFearGreed, 600000);
+        setInterval(function() { loadIndicators(document.getElementById('indicators-crypto').value); }, 300000);
     </script>
 </body>
 </html>

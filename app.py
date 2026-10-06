@@ -1,11 +1,10 @@
 """
 CryptoGuard Web App - Flask Backend
-Version: 4.0.0 - With OAuth (Google + Facebook)
+Version: 5.2.0 - With Fear & Greed + Technical Indicators
 """
 
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session, Response
 from flask_login import LoginManager, current_user, login_required, login_user
-from flask_babel import Babel, gettext as _
 from datetime import datetime
 from models import db, User, WatchlistItem, PortfolioItem
 from auth import auth
@@ -41,7 +40,6 @@ db.init_app(app)
 
 oauth = OAuth(app)
 
-# Google OAuth
 oauth.register(
     name="google",
     client_id=os.environ.get("GOOGLE_CLIENT_ID"),
@@ -50,7 +48,6 @@ oauth.register(
     client_kwargs={"scope": "openid email profile"}
 )
 
-# Facebook OAuth
 oauth.register(
     name="facebook",
     client_id=os.environ.get("FACEBOOK_CLIENT_ID"),
@@ -222,18 +219,15 @@ def set_language(lang):
 
 @app.route("/auth/google")
 def google_login():
-    """بداية Google OAuth"""
     redirect_uri = url_for("google_callback", _external=True)
     return oauth.google.authorize_redirect(redirect_uri)
 
 
 @app.route("/auth/google/callback")
 def google_callback():
-    """Callback من Google"""
     try:
         token = oauth.google.authorize_access_token()
         user_info = token.get("userinfo") or oauth.google.userinfo()
-
         email = (user_info.get("email") or "").lower()
         name = user_info.get("name") or email.split("@")[0]
 
@@ -241,7 +235,6 @@ def google_callback():
             return redirect(url_for("auth.login"))
 
         user = User.query.filter_by(email=email).first()
-
         if not user:
             base_username = email.split("@")[0]
             username = base_username
@@ -249,12 +242,7 @@ def google_callback():
             while User.query.filter_by(username=username).first():
                 username = f"{base_username}{counter}"
                 counter += 1
-
-            user = User(
-                username=username,
-                email=email,
-                password_hash="oauth-google"
-            )
+            user = User(username=username, email=email, password_hash="oauth-google")
             db.session.add(user)
             db.session.commit()
 
@@ -267,19 +255,16 @@ def google_callback():
 
 @app.route("/auth/facebook")
 def facebook_login():
-    """بداية Facebook OAuth"""
     redirect_uri = url_for("facebook_callback", _external=True)
     return oauth.facebook.authorize_redirect(redirect_uri)
 
 
 @app.route("/auth/facebook/callback")
 def facebook_callback():
-    """Callback من Facebook"""
     try:
         token = oauth.facebook.authorize_access_token()
         resp = oauth.facebook.get("me?fields=id,name,email")
         profile = resp.json()
-
         email = (profile.get("email") or "").lower()
         name = profile.get("name", "Facebook User")
         fb_id = profile.get("id", "")
@@ -288,7 +273,6 @@ def facebook_callback():
             email = f"fb_{fb_id}@cryptoguard.local"
 
         user = User.query.filter_by(email=email).first()
-
         if not user:
             base_username = name.replace(" ", "").lower()[:15] or f"fb_{fb_id}"
             username = base_username
@@ -296,12 +280,7 @@ def facebook_callback():
             while User.query.filter_by(username=username).first():
                 username = f"{base_username}{counter}"
                 counter += 1
-
-            user = User(
-                username=username,
-                email=email,
-                password_hash="oauth-facebook"
-            )
+            user = User(username=username, email=email, password_hash="oauth-facebook")
             db.session.add(user)
             db.session.commit()
 
@@ -350,7 +329,7 @@ def api_history(crypto_id):
                 cache = json.load(f)
             entry = cache.get(cache_key)
             if entry and (time.time() - entry["timestamp"]) < cache_duration:
-                return jsonify({"crypto_id": crypto_id, "days": days, "prices": entry["prices"], "timestamps": entry["timestamps"], "cached": True})
+                return jsonify({"crypto_id": crypto_id, "days": days, "prices": entry["prices"], "timestamps": entry.get("timestamps", []), "cached": True})
         except (json.JSONDecodeError, IOError):
             pass
 
@@ -385,10 +364,121 @@ def api_history(crypto_id):
                     cache = json.load(f)
                 entry = cache.get(cache_key)
                 if entry:
-                    return jsonify({"crypto_id": crypto_id, "days": days, "prices": entry["prices"], "timestamps": entry["timestamps"], "cached": True, "stale": True})
+                    return jsonify({"crypto_id": crypto_id, "days": days, "prices": entry["prices"], "timestamps": entry.get("timestamps", []), "cached": True, "stale": True})
             except (json.JSONDecodeError, IOError):
                 pass
         return jsonify({"error": f"Erreur API: {str(e)}"}), 500
+
+
+# ═══════════════════════════════════════════════════════
+#  API: TECHNICAL INDICATORS
+# ═══════════════════════════════════════════════════════
+
+@app.route("/api/indicators/<crypto_id>")
+def api_indicators(crypto_id):
+    from technical_indicators import calculate_all_indicators
+
+    days = request.args.get("days", 90, type=int)
+
+    cache_file = "cache_history.json"
+    cache_duration = 3600
+    cache_key = f"{crypto_id}_{days}"
+
+    prices = None
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+            entry = cache.get(cache_key)
+            if entry and (time.time() - entry["timestamp"]) < cache_duration:
+                prices = entry["prices"]
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    if not prices:
+        try:
+            url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}/market_chart"
+            params = {"vs_currency": "usd", "days": days}
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            prices = [p[1] for p in data.get("prices", [])]
+
+            cache = {}
+            if os.path.exists(cache_file):
+                try:
+                    with open(cache_file, "r", encoding="utf-8") as f:
+                        cache = json.load(f)
+                except (json.JSONDecodeError, IOError):
+                    cache = {}
+            cache[cache_key] = {"timestamp": time.time(), "prices": prices, "timestamps": []}
+            try:
+                with open(cache_file, "w", encoding="utf-8") as f:
+                    json.dump(cache, f)
+            except IOError:
+                pass
+        except requests.RequestException as e:
+            return jsonify({"error": str(e)}), 500
+
+    indicators = calculate_all_indicators(prices)
+
+    return jsonify({
+        "crypto_id": crypto_id,
+        "indicators": indicators
+    })
+
+
+# ═══════════════════════════════════════════════════════
+#  API: FEAR & GREED
+# ═══════════════════════════════════════════════════════
+
+@app.route("/api/fear-greed")
+def api_fear_greed():
+    try:
+        url = "https://api.alternative.me/fng/?limit=30"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        current = data["data"][0]
+        value = int(current["value"])
+        classification = current["value_classification"]
+        timestamp = int(current["timestamp"])
+
+        history = []
+        for item in data["data"]:
+            history.append({
+                "value": int(item["value"]),
+                "timestamp": int(item["timestamp"]),
+                "classification": item["value_classification"]
+            })
+
+        if value <= 25:
+            color = "#f38ba8"
+            emoji = "😱"
+        elif value <= 45:
+            color = "#fab387"
+            emoji = "😟"
+        elif value <= 55:
+            color = "#f9e2af"
+            emoji = "😐"
+        elif value <= 75:
+            color = "#a6e3a1"
+            emoji = "😊"
+        else:
+            color = "#40a02b"
+            emoji = "🤑"
+
+        return jsonify({
+            "value": value,
+            "classification": classification,
+            "color": color,
+            "emoji": emoji,
+            "timestamp": timestamp,
+            "history": history
+        })
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ═══════════════════════════════════════════════════════
@@ -418,57 +508,7 @@ def api_top_movers():
 
     return jsonify({"gainers": [fmt(c) for c in gainers], "losers": [fmt(c) for c in losers]})
 
-@app.route("/api/fear-greed")
-def api_fear_greed():
-    """API: Fear & Greed Index من Alternative.me"""
-    try:
-        url = "https://api.alternative.me/fng/?limit=30"
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        
-        # البيانات الحالية
-        current = data["data"][0]
-        value = int(current["value"])
-        classification = current["value_classification"]
-        timestamp = int(current["timestamp"])
-        
-        # آخر 30 يوم (للـChart)
-        history = []
-        for item in data["data"]:
-            history.append({
-                "value": int(item["value"]),
-                "timestamp": int(item["timestamp"]),
-                "classification": item["value_classification"]
-            })
-        
-        # اللون حسب القيمة
-        if value <= 25:
-            color = "#f38ba8"  # أحمر (خوف)
-            emoji = "😱"
-        elif value <= 45:
-            color = "#fab387"  # برتقالي
-            emoji = "😟"
-        elif value <= 55:
-            color = "#f9e2af"  # أصفر (محايد)
-            emoji = "😐"
-        elif value <= 75:
-            color = "#a6e3a1"  # أخضر
-            emoji = "😊"
-        else:
-            color = "#40a02b"  # أخضر غامق (طمع)
-            emoji = "🤑"
-        
-        return jsonify({
-            "value": value,
-            "classification": classification,
-            "color": color,
-            "emoji": emoji,
-            "timestamp": timestamp,
-            "history": history
-        })
-    except requests.RequestException as e:
-        return jsonify({"error": str(e)}), 500
+
 # ═══════════════════════════════════════════════════════
 #  API: EXPORT CSV
 # ═══════════════════════════════════════════════════════
@@ -676,40 +716,6 @@ def api_chat():
     response = chat(message, crypto_data)
     return jsonify({"message": message, "response": response})
 
-@app.route("/api/analyze-contract", methods=["POST"])
-def api_analyze_contract():
-    """API: تحليل صورة عقد ذكي"""
-    from contract_analyzer import analyze_contract_image
-    
-    if "image" not in request.files:
-        return jsonify({"error": "Aucune image fournie"}), 400
-    
-    image = request.files["image"]
-    
-    if not image.filename:
-        return jsonify({"error": "Fichier vide"}), 400
-    
-    # التحقق من النوع
-    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
-    if image.mimetype not in allowed_types:
-        return jsonify({"error": "Type d'image non supporté"}), 400
-    
-    # التحقق من الحجم (max 5 MB)
-    image.seek(0, 2)
-    size = image.tell()
-    image.seek(0)
-    
-    if size > 5 * 1024 * 1024:
-        return jsonify({"error": "Image trop volumineuse (max 5 MB)"}), 400
-    
-    try:
-        lang = get_locale()
-        image_bytes = image.read()
-        result = analyze_contract_image(image_bytes, image.mimetype, lang)
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
 
 # ═══════════════════════════════════════════════════════
 #  API: ALERTS
@@ -727,6 +733,41 @@ def api_alerts_test():
         target_price=data.get("target_price", 0)
     )
     return jsonify(result)
+
+
+# ═══════════════════════════════════════════════════════
+#  API: ANALYZE CONTRACT
+# ═══════════════════════════════════════════════════════
+
+@app.route("/api/analyze-contract", methods=["POST"])
+def api_analyze_contract():
+    from contract_analyzer import analyze_contract_image
+
+    if "image" not in request.files:
+        return jsonify({"error": "Aucune image fournie"}), 400
+
+    image = request.files["image"]
+    if not image.filename:
+        return jsonify({"error": "Fichier vide"}), 400
+
+    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp"]
+    if image.mimetype not in allowed_types:
+        return jsonify({"error": "Type d'image non supporté"}), 400
+
+    image.seek(0, 2)
+    size = image.tell()
+    image.seek(0)
+
+    if size > 5 * 1024 * 1024:
+        return jsonify({"error": "Image trop volumineuse (max 5 MB)"}), 400
+
+    try:
+        lang = get_locale()
+        image_bytes = image.read()
+        result = analyze_contract_image(image_bytes, image.mimetype, lang)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ═══════════════════════════════════════════════════════
