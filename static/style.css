@@ -1470,3 +1470,71 @@ html.light-mode .oauth-google:hover {
 .portfolio-chart-section h2 {
     font-size: 1.4em;
 }
+/* ═══ GAS TRACKER ═══ */
+.gas-section {
+    max-width: 1200px;
+    margin: 0 auto 30px;
+}
+
+.gas-card {
+    background: var(--bg-secondary);
+    border-radius: 15px;
+    padding: 25px;
+    animation: fadeIn 0.6s ease-out;
+}
+
+.gas-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+}
+
+.gas-item {
+    background: var(--bg-primary);
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    transition: transform 0.3s;
+}
+
+.gas-item:hover {
+    transform: translateY(-3px);
+}
+
+.gas-label {
+    color: var(--text-secondary);
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.gas-price {
+    font-size: 1.8em;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+.gas-price small {
+    font-size: 0.5em;
+    color: var(--text-muted);
+}
+
+.gas-usd {
+    color: var(--text-secondary);
+    font-size: 0.85em;
+    margin-top: 5px;
+}
+
+.gas-time {
+    color: var(--text-muted);
+    font-size: 0.8em;
+    margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+    .gas-grid {
+        grid-template-columns: 1fr;
+    }
+}

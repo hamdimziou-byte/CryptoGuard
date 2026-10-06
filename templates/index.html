@@ -110,7 +110,15 @@
         </div>
         <canvas id="price-chart"></canvas>
     </div>
-
+<!-- ═══ GAS TRACKER ═══ -->
+<div class="gas-section">
+    <div class="gas-card">
+        <h3 style="color:var(--accent-blue); margin-bottom:15px;">⛽ Ethereum Gas Prices</h3>
+        <div id="gas-content">
+            <div class="loading">⏳ ...</div>
+        </div>
+    </div>
+</div>
     <!-- ═══ TOP MOVERS ═══ -->
     <div class="top-movers-section">
         <div class="movers-column">
@@ -318,7 +326,45 @@
                 container.innerHTML = '<div class="error">❌ ' + error.message + '</div>';
             }
         }
-
+// ═══ GAS TRACKER ═══
+async function loadGas() {
+    var container = document.getElementById('gas-content');
+    try {
+        var response = await fetch('/api/gas');
+        var data = await response.json();
+        
+        if (data.error) {
+            container.innerHTML = '<div class="error">❌ ' + data.error + '</div>';
+            return;
+        }
+        
+        var icons = { slow: '🐢', standard: '🚗', fast: '🚀' };
+        var colors = { slow: '#a6e3a1', standard: '#f9e2af', fast: '#f38ba8' };
+        
+        var html = '<div class="gas-grid">';
+        data.speeds.forEach(function(s) {
+            var name = s.name.toLowerCase();
+            var icon = icons[name] || '⚡';
+            var color = colors[name] || '#89b4fa';
+            
+            html += '<div class="gas-item">';
+            html += '<div class="gas-label">' + icon + ' ' + s.name.toUpperCase() + '</div>';
+            html += '<div class="gas-price" style="color:' + color + ';">' + s.max_fee + ' <small>gwei</small></div>';
+            html += '<div class="gas-usd">💵 $' + (s.usd_transfer || 0).toFixed(3) + ' (transfer)</div>';
+            if (s.usd_swap) html += '<div class="gas-usd">🔄 $' + s.usd_swap.toFixed(3) + ' (swap)</div>';
+            if (s.estimated_seconds) {
+                var time = s.estimated_seconds < 60 ? s.estimated_seconds + 's' : Math.round(s.estimated_seconds / 60) + 'min';
+                html += '<div class="gas-time">⏱️ ' + time + '</div>';
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+        
+        container.innerHTML = html;
+    } catch (error) {
+        container.innerHTML = '<div class="error">❌ ' + error.message + '</div>';
+    }
+}
         // ═══ TECHNICAL INDICATORS ═══
         async function loadIndicators(cryptoId) {
             if (!cryptoId) cryptoId = document.getElementById('indicators-crypto').value;
@@ -692,6 +738,8 @@
         loadTopMovers();
         loadFearGreed();
         loadIndicators('bitcoin');
+        loadGas();
+        setInterval(loadGas, 60000);
         setInterval(loadPrices, 60000);
         setInterval(loadNews, 300000);
         setInterval(loadTopMovers, 120000);
