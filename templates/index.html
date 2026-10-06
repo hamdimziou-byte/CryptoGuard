@@ -28,6 +28,7 @@
             <a href="#" onclick="toggleChat(); return false;">💬 AI Chat</a>
             <a href="#" onclick="toggleAlertForm(); return false;">🔔 {{ t('alerts') }}</a>
             <a href="#" onclick="toggleContractAnalyzer(); return false;">🔍 Analyzer</a>
+            <a href="#" onclick="toggleDCA(); return false;">📊 DCA</a>
             {% if current_user.is_authenticated %}
                 <a href="/portfolio">💼 {{ t('portfolio') }}</a>
                 <a href="/watchlist">⭐ {{ t('watchlist') }}</a>
@@ -224,7 +225,39 @@
             <div id="crypto-modal-body"><div class="loading">⏳ {{ t('loading') }}...</div></div>
         </div>
     </div>
+<!-- ═══ DCA CALCULATOR MODAL ═══ -->
+<div id="dca-modal" class="crypto-modal">
+    <div class="crypto-modal-content">
+        <button onclick="toggleDCA()" class="crypto-modal-close">×</button>
+        <h2 style="color:var(--accent-blue); margin-bottom:15px;">📊 DCA Calculator</h2>
+        <p style="color:var(--text-secondary); margin-bottom:20px;">
+            Simulez un investissement régulier (Dollar-Cost Averaging).
+        </p>
 
+        <div class="dca-form">
+            <label style="color:var(--text-primary); font-weight:600;">Cryptomonnaie</label>
+            <select id="dca-crypto" class="chart-selector" style="width:100%;">
+                <option value="bitcoin">Bitcoin (BTC)</option>
+                <option value="ethereum">Ethereum (ETH)</option>
+                <option value="binancecoin">BNB</option>
+                <option value="solana">Solana (SOL)</option>
+                <option value="ripple">XRP</option>
+                <option value="cardano">Cardano (ADA)</option>
+                <option value="dogecoin">Dogecoin (DOGE)</option>
+            </select>
+
+            <label style="color:var(--text-primary); font-weight:600; margin-top:15px;">Montant mensuel ($)</label>
+            <input type="number" id="dca-amount" value="100" min="1" style="padding:12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-primary);">
+
+            <label style="color:var(--text-primary); font-weight:600; margin-top:15px;">Durée (mois)</label>
+            <input type="number" id="dca-months" value="12" min="1" max="60" style="padding:12px; border-radius:8px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-primary);">
+
+            <button onclick="calculateDCA()" class="btn-send-alert" style="width:100%; margin-top:20px;">📊 Calculer</button>
+        </div>
+
+        <div id="dca-result" style="margin-top:20px;"></div>
+    </div>
+</div>
     <!-- ═══ CONTRACT ANALYZER MODAL ═══ -->
     <div id="contract-modal" class="crypto-modal">
         <div class="crypto-modal-content">
@@ -326,6 +359,115 @@
                 container.innerHTML = '<div class="error">❌ ' + error.message + '</div>';
             }
         }
+// ═══ DCA CALCULATOR ═══
+function toggleDCA() {
+    var m = document.getElementById('dca-modal');
+    m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+    document.getElementById('dca-result').innerHTML = '';
+}
+
+async function calculateDCA() {
+    var cryptoId = document.getElementById('dca-crypto').value;
+    var amount = parseFloat(document.getElementById('dca-amount').value);
+    var months = parseInt(document.getElementById('dca-months').value);
+    var resultDiv = document.getElementById('dca-result');
+
+    resultDiv.innerHTML = '<div class="loading">⏳ Calcul en cours...</div>';
+
+    try {
+        var response = await fetch('/api/dca', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                crypto_id: cryptoId,
+                monthly_amount: amount,
+                months: months
+            })
+        });
+
+        var data = await response.json();
+
+        if (data.error) {
+            resultDiv.innerHTML = '<div class="error">❌ ' + data.error + '</div>';
+            return;
+        }
+
+        var profitColor = data.profit >= 0 ? '#a6e3a1' : '#f38ba8';
+        var roiSign = data.roi >= 0 ? '+' : '';
+
+        var html = '';
+        html += '<div class="dca-stats">';
+        html += '<div class="dca-stat"><div class="dca-label">Investi</div><div class="dca-value">$' + data.total_invested.toLocaleString('fr-FR') + '</div></div>';
+        html += '<div class="dca-stat"><div class="dca-label">Valeur Actuelle</div><div class="dca-value" style="color:#89b4fa;">$' + data.current_value.toLocaleString('fr-FR') + '</div></div>';
+        html += '<div class="dca-stat"><div class="dca-label">Profit</div><div class="dca-value" style="color:' + profitColor + ';">' + (data.profit >= 0 ? '+' : '') + '$' + data.profit.toLocaleString('fr-FR') + '</div><div style="color:' + profitColor + '; font-size:0.9em;">' + roiSign + data.roi + '%</div></div>';
+        html += '</div>';
+
+        html += '<div class="dca-details">';
+        html += '<div>🪙 Total ' + cryptoId.toUpperCase() + ': <strong>' + data.total_coins.toFixed(6) + '</strong></div>';
+        html += '<div>💵 Prix moyen d\'achat: <strong>$' + data.avg_buy_price.toLocaleString('fr-FR') + '</strong></div>';
+        html += '<div>📈 Prix actuel: <strong>$' + data.current_price.toLocaleString('fr-FR') + '</strong></div>';
+        html += '</div>';
+
+        // DCA vs Lump Sum
+        var dcaBetter = data.dca_vs_lumpsum >= 0;
+        html += '<div class="dca-comparison">';
+        html += '<div style="color:var(--text-muted); font-size:0.85em; text-transform:uppercase; margin-bottom:8px;">DCA vs Investissement Unique</div>';
+        html += '<div style="font-size:1.1em;">';
+        if (dcaBetter) {
+            html += '✅ <strong style="color:#a6e3a1;">DCA meilleur</strong> de $' + data.dca_vs_lumpsum.toLocaleString('fr-FR');
+        } else {
+            html += '⚠️ <strong style="color:#f38ba8;">Lump Sum meilleur</strong> de $' + Math.abs(data.dca_vs_lumpsum).toLocaleString('fr-FR');
+        }
+        html += '</div></div>';
+
+        // Chart
+        html += '<div style="height:200px; margin-top:20px;"><canvas id="dca-chart"></canvas></div>';
+
+        resultDiv.innerHTML = html;
+
+        // رسم Chart
+        if (data.timeline && data.timeline.length > 0) {
+            var ctx = document.getElementById('dca-chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.timeline.map(function(t) {
+                        return new Date(t.timestamp).toLocaleDateString('fr-FR', {month: 'short', year: '2-digit'});
+                    }),
+                    datasets: [{
+                        label: 'Valeur',
+                        data: data.timeline.map(t => t.value),
+                        borderColor: '#a6e3a1',
+                        backgroundColor: 'rgba(166, 227, 161, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    }, {
+                        label: 'Investi',
+                        data: data.timeline.map(t => t.invested),
+                        borderColor: '#f38ba8',
+                        borderWidth: 1,
+                        borderDash: [5, 5],
+                        fill: false,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#cdd6f4', boxWidth: 12 } } },
+                    scales: {
+                        y: { ticks: { color: '#cdd6f4', callback: v => '$' + v.toLocaleString() }, grid: { color: '#45475a' } },
+                        x: { ticks: { color: '#cdd6f4', maxTicksLimit: 6 }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+    } catch (error) {
+        resultDiv.innerHTML = '<div class="error">❌ ' + error.message + '</div>';
+    }
+}
 // ═══ GAS TRACKER ═══
 async function loadGas() {
     var container = document.getElementById('gas-content');

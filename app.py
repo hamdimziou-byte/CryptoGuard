@@ -569,6 +569,99 @@ def api_gas():
         "speeds": result,
         "timestamp": int(time.time())
     })
+@app.route("/api/dca", methods=["POST"])
+def api_dca():
+    """API: DCA Calculator"""
+    data = request.get_json()
+    crypto_id = data.get("crypto_id", "bitcoin").lower()
+    monthly_amount = float(data.get("monthly_amount", 100))
+    months = int(data.get("months", 12))
+
+    if months < 1 or months > 60:
+        return jsonify({"error": "Mois entre 1 et 60"}), 400
+    if monthly_amount <= 0:
+        return jsonify({"error": "Montant invalide"}), 400
+
+    try:
+        # جلب التاريخ
+        days = months * 30
+        url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}/market_chart"
+        params = {"vs_currency": "usd", "days": days}
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
+        chart_data = response.json()
+
+        prices = [p[1] for p in chart_data.get("prices", [])]
+        timestamps = [p[0] for p in chart_data.get("prices", [])]
+
+        if not prices:
+            return jsonify({"error": "Pas de données"}), 500
+
+        # نحسبو DCA
+        total_invested = 0
+        total_coins = 0
+        purchases = []
+
+        # نشتريو كل 30 يوم
+        for i in range(0, len(prices), max(1, len(prices) // months)):
+            if total_invested >= monthly_amount * months:
+                break
+            price = prices[i]
+            if price > 0:
+                coins_bought = monthly_amount / price
+                total_coins += coins_bought
+                total_invested += monthly_amount
+                purchases.append({
+                    "date": timestamps[i] if i < len(timestamps) else None,
+                    "price": round(price, 2),
+                    "coins": round(coins_bought, 8),
+                })
+
+        current_price = prices[-1]
+        current_value = total_coins * current_price
+
+        # Portfolio timeline
+        timeline = []
+        for i in range(0, len(prices), max(1, len(prices) // 50)):
+            coins_so_far = 0
+            invested_so_far = 0
+            for p in purchases:
+                if p["date"] and timestamps[i] and p["date"] <= timestamps[i]:
+                    coins_so_far += p["coins"]
+                    invested_so_far += monthly_amount
+            if coins_so_far > 0:
+                timeline.append({
+                    "timestamp": timestamps[i],
+                    "value": round(coins_so_far * prices[i], 2),
+                    "invested": round(invested_so_far, 2)
+                })
+
+        # احصائيات إضافية
+        roi = ((current_value - total_invested) / total_invested * 100) if total_invested > 0 else 0
+        avg_buy_price = (total_invested / total_coins) if total_coins > 0 else 0
+
+        # مقارنة مع Lump Sum
+        first_price = purchases[0]["price"] if purchases else prices[0]
+        lump_sum_coins = total_invested / first_price if first_price > 0 else 0
+        lump_sum_value = lump_sum_coins * current_price
+
+        return jsonify({
+            "crypto_id": crypto_id,
+            "monthly_amount": monthly_amount,
+            "months": months,
+            "total_invested": round(total_invested, 2),
+            "total_coins": round(total_coins, 8),
+            "current_price": round(current_price, 2),
+            "current_value": round(current_value, 2),
+            "roi": round(roi, 2),
+            "avg_buy_price": round(avg_buy_price, 2),
+            "profit": round(current_value - total_invested, 2),
+            "timeline": timeline,
+            "lump_sum_value": round(lump_sum_value, 2),
+            "dca_vs_lumpsum": round(current_value - lump_sum_value, 2)
+        })
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
 # ═══════════════════════════════════════════════════════
 #  API: FEAR & GREED
 # ═══════════════════════════════════════════════════════
