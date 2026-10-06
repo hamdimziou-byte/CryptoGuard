@@ -1594,3 +1594,58 @@ html.light-mode .oauth-google:hover {
         grid-template-columns: 1fr;
     }
 }
+/* ═══ AI SIGNALS ═══ */
+.signal-box {
+    background: var(--bg-primary);
+    padding: 25px;
+    border-radius: 15px;
+    border: 3px solid var(--accent-blue);
+    margin-bottom: 20px;
+}
+
+.signal-text {
+    font-size: 2.5em;
+    font-weight: bold;
+    text-align: center;
+    margin: 15px 0;
+    letter-spacing: 3px;
+}
+
+.signal-conf-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 15px;
+}
+
+.signal-conf-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 1s ease-out;
+}
+
+.signal-info {
+    display: flex;
+    justify-content: space-around;
+    background: var(--bg-primary);
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    font-size: 0.95em;
+}
+
+.signal-reasoning,
+.signal-points {
+    background: var(--bg-primary);
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.signal-point {
+    padding: 6px 0;
+    color: var(--text-primary);
+    font-size: 0.95em;
+}

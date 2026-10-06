@@ -1,6 +1,6 @@
 """
 CryptoGuard Web App - Flask Backend
-Version: 5.2.0 - With Fear & Greed + Technical Indicators
+Version: 6.0.0 - Complete with all features
 """
 
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session, Response
@@ -417,251 +417,39 @@ def api_indicators(crypto_id):
                     json.dump(cache, f)
             except IOError:
                 pass
-        except requests.RequestException as e:
-            return jsonify({"error": str(e)}), 500
+        except requests.RequestException:
+            pass
 
-    indicators = calculate_all_indicators(prices)
-
-    return jsonify({
-        "crypto_id": crypto_id,
-        "indicators": indicators
-    })
-
-@app.route("/api/portfolio/history")
-@login_required
-def api_portfolio_history():
-    """API: تاريخ المحفظة (30 يوم)"""
-    items = PortfolioItem.query.filter_by(user_id=current_user.id).all()
-    if not items:
-        return jsonify({"error": "Portfolio vide"}), 400
-
-    crypto_ids = list(set([item.crypto_id for item in items]))
-    days = 30
-
-    # جلب التاريخ لكل عملة
-    cache_file = "cache_history.json"
-    crypto_history = {}
-
-    for cid in crypto_ids:
-        cache_key = f"{cid}_{days}"
-
-        # جرب Cache
-        if os.path.exists(cache_file):
+    if not prices:
+        binance_map = {
+            "bitcoin": "BTCUSDT", "ethereum": "ETHUSDT",
+            "binancecoin": "BNBUSDT", "solana": "SOLUSDT",
+            "ripple": "XRPUSDT", "cardano": "ADAUSDT",
+            "dogecoin": "DOGEUSDT", "tron": "TRXUSDT",
+            "polkadot": "DOTUSDT", "chainlink": "LINKUSDT",
+            "matic-network": "MATICUSDT", "avalanche-2": "AVAXUSDT",
+            "litecoin": "LTCUSDT", "uniswap": "UNIUSDT",
+            "stellar": "XLMUSDT"
+        }
+        symbol = binance_map.get(crypto_id)
+        if symbol:
             try:
-                with open(cache_file, "r", encoding="utf-8") as f:
-                    cache = json.load(f)
-                entry = cache.get(cache_key)
-                if entry and entry.get("prices"):
-                    crypto_history[cid] = {
-                        "prices": entry["prices"],
-                        "timestamps": entry.get("timestamps", [])
-                    }
-                    continue
-            except (json.JSONDecodeError, IOError):
+                url = "https://api.binance.com/api/v3/klines"
+                params = {"symbol": symbol, "interval": "1d", "limit": min(days, 365)}
+                response = requests.get(url, params=params, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+                prices = [float(k[4]) for k in data]
+            except Exception:
                 pass
 
-        # Fetch من CoinGecko
-        try:
-            url = f"https://api.coingecko.com/api/v3/coins/{cid}/market_chart"
-            params = {"vs_currency": "usd", "days": days}
-            response = requests.get(url, params=params, timeout=10)
-            if response.ok:
-                data = response.json()
-                prices = [p[1] for p in data.get("prices", [])]
-                timestamps = [p[0] for p in data.get("prices", [])]
-                crypto_history[cid] = {"prices": prices, "timestamps": timestamps}
+    if not prices:
+        return jsonify({"error": "Impossible de récupérer les données. Réessayez dans 1 minute."}), 500
 
-                # Save Cache
-                cache = {}
-                if os.path.exists(cache_file):
-                    try:
-                        with open(cache_file, "r", encoding="utf-8") as f:
-                            cache = json.load(f)
-                    except (json.JSONDecodeError, IOError):
-                        cache = {}
-                cache[cache_key] = {
-                    "timestamp": time.time(),
-                    "prices": prices,
-                    "timestamps": timestamps
-                }
-                try:
-                    with open(cache_file, "w", encoding="utf-8") as f:
-                        json.dump(cache, f)
-                except IOError:
-                    pass
-        except requests.RequestException:
-            continue
+    indicators = calculate_all_indicators(prices)
+    return jsonify({"crypto_id": crypto_id, "indicators": indicators})
 
-    if not crypto_history:
-        return jsonify({"error": "Impossible de récupérer l'historique"}), 500
 
-    # نحسبو القيمة الإجمالية يوم بيوم
-    # ناخدو أقصر سلسلة باش نضمنو التناسق
-    min_len = min(len(h["prices"]) for h in crypto_history.values())
-
-    timeline = []
-    timestamps_ref = None
-
-    for cid, h in crypto_history.items():
-        if len(h["timestamps"]) >= min_len and not timestamps_ref:
-            timestamps_ref = h["timestamps"][-min_len:]
-
-    for i in range(min_len):
-        total = 0
-        for item in items:
-            h = crypto_history.get(item.crypto_id)
-            if h and len(h["prices"]) > i:
-                total += h["prices"][-(min_len - i)] * item.amount
-        timeline.append(round(total, 2))
-
-    # حساب الـcost الأساسي
-    total_cost = sum(item.buy_price * item.amount for item in items)
-
-    return jsonify({
-        "timeline": timeline,
-        "timestamps": timestamps_ref or [],
-        "total_cost": round(total_cost, 2),
-        "crypto_count": len(crypto_ids)
-    })
-@app.route("/api/gas")
-def api_gas():
-    """API: Ethereum Gas Prices (with fallback)"""
-    # نجيبو سعر ETH الحقيقي
-    eth_price = 2500
-    try:
-        r = requests.get(
-            "https://api.coingecko.com/api/v3/simple/price",
-            params={"ids": "ethereum", "vs_currencies": "usd"},
-            timeout=5
-        )
-        if r.ok:
-            eth_price = r.json().get("ethereum", {}).get("usd", 2500)
-    except Exception:
-        pass
-
-    # قيم Gas تقريبية (gwei) — تتحدّث حسب الشبكة
-    # المصدر: تقديرات مبنية على متوسطات 2024-2026
-    gas_data = {
-        "slow": {"gwei": 12, "seconds": 300},
-        "standard": {"gwei": 22, "seconds": 60},
-        "fast": {"gwei": 35, "seconds": 30},
-    }
-
-    def calc_usd(gwei, gas_units):
-        """حساب التكلفة بالدولار"""
-        # gas_units × gwei × 1e-9 × eth_price
-        return round(gwei * gas_units * 1e-9 * eth_price, 3)
-
-    result = []
-    for name, info in gas_data.items():
-        gwei = info["gwei"]
-        result.append({
-            "name": name,
-            "max_fee": gwei,
-            "usd_transfer": calc_usd(gwei, 21000),      # ETH transfer
-            "usd_swap": calc_usd(gwei, 150000),          # Token swap
-            "usd_nft": calc_usd(gwei, 85000),            # NFT mint
-            "estimated_seconds": info["seconds"],
-        })
-
-    return jsonify({
-        "eth_price": round(eth_price, 2),
-        "speeds": result,
-        "timestamp": int(time.time())
-    })
-@app.route("/api/dca", methods=["POST"])
-def api_dca():
-    """API: DCA Calculator"""
-    data = request.get_json()
-    crypto_id = data.get("crypto_id", "bitcoin").lower()
-    monthly_amount = float(data.get("monthly_amount", 100))
-    months = int(data.get("months", 12))
-
-    if months < 1 or months > 60:
-        return jsonify({"error": "Mois entre 1 et 60"}), 400
-    if monthly_amount <= 0:
-        return jsonify({"error": "Montant invalide"}), 400
-
-    try:
-        # جلب التاريخ
-        days = months * 30
-        url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}/market_chart"
-        params = {"vs_currency": "usd", "days": days}
-        response = requests.get(url, params=params, timeout=15)
-        response.raise_for_status()
-        chart_data = response.json()
-
-        prices = [p[1] for p in chart_data.get("prices", [])]
-        timestamps = [p[0] for p in chart_data.get("prices", [])]
-
-        if not prices:
-            return jsonify({"error": "Pas de données"}), 500
-
-        # نحسبو DCA
-        total_invested = 0
-        total_coins = 0
-        purchases = []
-
-        # نشتريو كل 30 يوم
-        for i in range(0, len(prices), max(1, len(prices) // months)):
-            if total_invested >= monthly_amount * months:
-                break
-            price = prices[i]
-            if price > 0:
-                coins_bought = monthly_amount / price
-                total_coins += coins_bought
-                total_invested += monthly_amount
-                purchases.append({
-                    "date": timestamps[i] if i < len(timestamps) else None,
-                    "price": round(price, 2),
-                    "coins": round(coins_bought, 8),
-                })
-
-        current_price = prices[-1]
-        current_value = total_coins * current_price
-
-        # Portfolio timeline
-        timeline = []
-        for i in range(0, len(prices), max(1, len(prices) // 50)):
-            coins_so_far = 0
-            invested_so_far = 0
-            for p in purchases:
-                if p["date"] and timestamps[i] and p["date"] <= timestamps[i]:
-                    coins_so_far += p["coins"]
-                    invested_so_far += monthly_amount
-            if coins_so_far > 0:
-                timeline.append({
-                    "timestamp": timestamps[i],
-                    "value": round(coins_so_far * prices[i], 2),
-                    "invested": round(invested_so_far, 2)
-                })
-
-        # احصائيات إضافية
-        roi = ((current_value - total_invested) / total_invested * 100) if total_invested > 0 else 0
-        avg_buy_price = (total_invested / total_coins) if total_coins > 0 else 0
-
-        # مقارنة مع Lump Sum
-        first_price = purchases[0]["price"] if purchases else prices[0]
-        lump_sum_coins = total_invested / first_price if first_price > 0 else 0
-        lump_sum_value = lump_sum_coins * current_price
-
-        return jsonify({
-            "crypto_id": crypto_id,
-            "monthly_amount": monthly_amount,
-            "months": months,
-            "total_invested": round(total_invested, 2),
-            "total_coins": round(total_coins, 8),
-            "current_price": round(current_price, 2),
-            "current_value": round(current_value, 2),
-            "roi": round(roi, 2),
-            "avg_buy_price": round(avg_buy_price, 2),
-            "profit": round(current_value - total_invested, 2),
-            "timeline": timeline,
-            "lump_sum_value": round(lump_sum_value, 2),
-            "dca_vs_lumpsum": round(current_value - lump_sum_value, 2)
-        })
-    except requests.RequestException as e:
-        return jsonify({"error": str(e)}), 500
 # ═══════════════════════════════════════════════════════
 #  API: FEAR & GREED
 # ═══════════════════════════════════════════════════════
@@ -711,6 +499,211 @@ def api_fear_greed():
             "timestamp": timestamp,
             "history": history
         })
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════
+#  API: GAS TRACKER
+# ═══════════════════════════════════════════════════════
+
+@app.route("/api/gas")
+def api_gas():
+    eth_price = 2500
+    try:
+        r = requests.get(
+            "https://api.coingecko.com/api/v3/simple/price",
+            params={"ids": "ethereum", "vs_currencies": "usd"},
+            timeout=5
+        )
+        if r.ok:
+            eth_price = r.json().get("ethereum", {}).get("usd", 2500)
+    except Exception:
+        pass
+
+    gas_data = {
+        "slow": {"gwei": 12, "seconds": 300},
+        "standard": {"gwei": 22, "seconds": 60},
+        "fast": {"gwei": 35, "seconds": 30},
+    }
+
+    def calc_usd(gwei, gas_units):
+        return round(gwei * gas_units * 1e-9 * eth_price, 3)
+
+    result = []
+    for name, info in gas_data.items():
+        gwei = info["gwei"]
+        result.append({
+            "name": name,
+            "max_fee": gwei,
+            "usd_transfer": calc_usd(gwei, 21000),
+            "usd_swap": calc_usd(gwei, 150000),
+            "usd_nft": calc_usd(gwei, 85000),
+            "estimated_seconds": info["seconds"],
+        })
+
+    return jsonify({
+        "eth_price": round(eth_price, 2),
+        "speeds": result,
+        "timestamp": int(time.time())
+    })
+
+
+# ═══════════════════════════════════════════════════════
+#  API: DCA CALCULATOR
+# ═══════════════════════════════════════════════════════
+
+@app.route("/api/dca", methods=["POST"])
+def api_dca():
+    data = request.get_json()
+    crypto_id = data.get("crypto_id", "bitcoin").lower()
+    monthly_amount = float(data.get("monthly_amount", 100))
+    months = int(data.get("months", 12))
+
+    if months < 1 or months > 60:
+        return jsonify({"error": "Mois entre 1 et 60"}), 400
+    if monthly_amount <= 0:
+        return jsonify({"error": "Montant invalide"}), 400
+
+    try:
+        days = months * 30
+        url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}/market_chart"
+        params = {"vs_currency": "usd", "days": days}
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
+        chart_data = response.json()
+
+        prices = [p[1] for p in chart_data.get("prices", [])]
+        timestamps = [p[0] for p in chart_data.get("prices", [])]
+
+        if not prices:
+            return jsonify({"error": "Pas de données"}), 500
+
+        total_invested = 0
+        total_coins = 0
+        purchases = []
+
+        step = max(1, len(prices) // months)
+        for i in range(0, len(prices), step):
+            if len(purchases) >= months:
+                break
+            price = prices[i]
+            if price > 0:
+                coins_bought = monthly_amount / price
+                total_coins += coins_bought
+                total_invested += monthly_amount
+                purchases.append({
+                    "date": timestamps[i] if i < len(timestamps) else None,
+                    "price": round(price, 2),
+                    "coins": round(coins_bought, 8),
+                })
+
+        current_price = prices[-1]
+        current_value = total_coins * current_price
+
+        timeline = []
+        step_t = max(1, len(prices) // 50)
+        for i in range(0, len(prices), step_t):
+            coins_so_far = 0
+            invested_so_far = 0
+            for p in purchases:
+                if p["date"] and timestamps[i] and p["date"] <= timestamps[i]:
+                    coins_so_far += p["coins"]
+                    invested_so_far += monthly_amount
+            if coins_so_far > 0:
+                timeline.append({
+                    "timestamp": timestamps[i],
+                    "value": round(coins_so_far * prices[i], 2),
+                    "invested": round(invested_so_far, 2)
+                })
+
+        roi = ((current_value - total_invested) / total_invested * 100) if total_invested > 0 else 0
+        avg_buy_price = (total_invested / total_coins) if total_coins > 0 else 0
+
+        first_price = purchases[0]["price"] if purchases else prices[0]
+        lump_sum_coins = total_invested / first_price if first_price > 0 else 0
+        lump_sum_value = lump_sum_coins * current_price
+
+        return jsonify({
+            "crypto_id": crypto_id,
+            "monthly_amount": monthly_amount,
+            "months": months,
+            "total_invested": round(total_invested, 2),
+            "total_coins": round(total_coins, 8),
+            "current_price": round(current_price, 2),
+            "current_value": round(current_value, 2),
+            "roi": round(roi, 2),
+            "avg_buy_price": round(avg_buy_price, 2),
+            "profit": round(current_value - total_invested, 2),
+            "timeline": timeline,
+            "lump_sum_value": round(lump_sum_value, 2),
+            "dca_vs_lumpsum": round(current_value - lump_sum_value, 2)
+        })
+    except requests.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════
+#  API: AI TRADING SIGNALS
+# ═══════════════════════════════════════════════════════
+
+@app.route("/api/signals/<crypto_id>")
+def api_signals(crypto_id):
+    try:
+        url = f"https://api.coingecko.com/api/v3/coins/{crypto_id}"
+        params = {"localization": "false", "tickers": "false", "market_data": "true", "developer_data": "false", "community_data": "false"}
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        md = data.get("market_data", {})
+        name = data.get("name", crypto_id)
+        symbol = (data.get("symbol") or "").upper()
+
+        signal_data = f"""
+Crypto: {name} ({symbol})
+Prix actuel: ${md.get('current_price', {}).get('usd', 0):,.2f}
+24h: {md.get('price_change_percentage_24h', 0):.2f}%
+7j: {md.get('price_change_percentage_7d', 0):.2f}%
+30j: {md.get('price_change_percentage_30d', 0):.2f}%
+Market Cap: ${md.get('market_cap', {}).get('usd', 0):,.0f}
+Volume 24h: ${md.get('total_volume', {}).get('usd', 0):,.0f}
+ATH: ${md.get('ath', {}).get('usd', 0):,.2f}
+Du ATH: {md.get('ath_change_percentage', {}).get('usd', 0):.2f}%
+"""
+
+        prompt = f"""Analyse cette cryptomonnaie et donne un signal de trading:
+
+{signal_data}
+
+Réponds en JSON avec ce format exact:
+{{
+  "signal": "BUY" ou "SELL" ou "HOLD",
+  "confidence": 0-100,
+  "timeframe": "short" ou "medium" ou "long",
+  "reasoning": "3-4 phrases expliquant pourquoi",
+  "risk_level": "LOW" ou "MEDIUM" ou "HIGH",
+  "key_points": ["point 1", "point 2", "point 3"]
+}}
+
+Ne donne que le JSON, rien d'autre. Sois objectif et mentionne les risques."""
+
+        response_text = chat(prompt)
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if not json_match:
+            return jsonify({"error": "Réponse AI invalide", "raw": response_text[:500]}), 500
+
+        try:
+            result = json.loads(json_match.group())
+        except json.JSONDecodeError:
+            return jsonify({"error": "JSON invalide", "raw": response_text[:500]}), 500
+
+        result["crypto_id"] = crypto_id
+        result["crypto_name"] = name
+        result["crypto_symbol"] = symbol
+        result["current_price"] = md.get("current_price", {}).get("usd", 0)
+
+        return jsonify(result)
     except requests.RequestException as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1002,6 +995,100 @@ def api_analyze_contract():
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════
+#  API: PORTFOLIO HISTORY
+# ═══════════════════════════════════════════════════════
+
+@app.route("/api/portfolio/history")
+@login_required
+def api_portfolio_history():
+    items = PortfolioItem.query.filter_by(user_id=current_user.id).all()
+    if not items:
+        return jsonify({"error": "Portfolio vide"}), 400
+
+    crypto_ids = list(set([item.crypto_id for item in items]))
+    days = 30
+
+    cache_file = "cache_history.json"
+    crypto_history = {}
+
+    for cid in crypto_ids:
+        cache_key = f"{cid}_{days}"
+
+        if os.path.exists(cache_file):
+            try:
+                with open(cache_file, "r", encoding="utf-8") as f:
+                    cache = json.load(f)
+                entry = cache.get(cache_key)
+                if entry and entry.get("prices"):
+                    crypto_history[cid] = {
+                        "prices": entry["prices"],
+                        "timestamps": entry.get("timestamps", [])
+                    }
+                    continue
+            except (json.JSONDecodeError, IOError):
+                pass
+
+        try:
+            url = f"https://api.coingecko.com/api/v3/coins/{cid}/market_chart"
+            params = {"vs_currency": "usd", "days": days}
+            response = requests.get(url, params=params, timeout=10)
+            if response.ok:
+                data = response.json()
+                prices = [p[1] for p in data.get("prices", [])]
+                timestamps = [p[0] for p in data.get("prices", [])]
+                crypto_history[cid] = {"prices": prices, "timestamps": timestamps}
+
+                cache = {}
+                if os.path.exists(cache_file):
+                    try:
+                        with open(cache_file, "r", encoding="utf-8") as f:
+                            cache = json.load(f)
+                    except (json.JSONDecodeError, IOError):
+                        cache = {}
+                cache[cache_key] = {
+                    "timestamp": time.time(),
+                    "prices": prices,
+                    "timestamps": timestamps
+                }
+                try:
+                    with open(cache_file, "w", encoding="utf-8") as f:
+                        json.dump(cache, f)
+                except IOError:
+                    pass
+        except requests.RequestException:
+            continue
+
+    if not crypto_history:
+        return jsonify({"error": "Impossible de récupérer l'historique"}), 500
+
+    min_len = min(len(h["prices"]) for h in crypto_history.values())
+
+    timeline = []
+    timestamps_ref = None
+
+    for cid, h in crypto_history.items():
+        if len(h["timestamps"]) >= min_len and not timestamps_ref:
+            timestamps_ref = h["timestamps"][-min_len:]
+
+    for i in range(min_len):
+        total = 0
+        for item in items:
+            h = crypto_history.get(item.crypto_id)
+            if h and len(h["prices"]) > i:
+                total += h["prices"][-(min_len - i)] * item.amount
+        timeline.append(round(total, 2))
+
+    total_cost = sum(item.buy_price * item.amount for item in items)
+
+    return jsonify({
+        "timeline": timeline,
+        "timestamps": timestamps_ref or [],
+        "total_cost": round(total_cost, 2),
+        "crypto_count": len(crypto_ids)
+    })
 
 
 # ═══════════════════════════════════════════════════════
